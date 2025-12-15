@@ -5,7 +5,6 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/products/ProductCard";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Search, Filter } from "lucide-react";
 import {
   Select,
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Product } from "@/types/product";
 
 const Products = () => {
   const [search, setSearch] = useState("");
@@ -31,7 +31,7 @@ const Products = () => {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data as Product[];
     }
   });
 
@@ -44,7 +44,8 @@ const Products = () => {
         .not('category', 'is', null);
       
       if (error) throw error;
-      const uniqueCategories = [...new Set(data.map(p => p.category))];
+      const items = data as { category: string }[];
+      const uniqueCategories = [...new Set(items.map(p => p.category))];
       return uniqueCategories.filter(Boolean);
     }
   });

@@ -7,6 +7,7 @@ import ProductCard from "@/components/products/ProductCard";
 import heroImage from "@/assets/hero-watch.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Product } from "@/types/product";
 
 const Index = () => {
   const { data: featuredProducts } = useQuery({
@@ -19,7 +20,7 @@ const Index = () => {
         .limit(4);
       
       if (error) throw error;
-      return data;
+      return data as Product[];
     }
   });
 

@@ -26,12 +26,13 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Package, Users, ShoppingCart, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import type { Product, UserRole } from "@/types/product";
 
 const Admin = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -76,13 +77,13 @@ const Admin = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data as Product[];
     }
   });
 
   const addMutation = useMutation({
-    mutationFn: async (product: any) => {
-      const { error } = await supabase.from('products').insert([product]);
+    mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'stock'>) => {
+      const { error } = await supabase.from('products').insert([product] as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -93,16 +94,16 @@ const Admin = () => {
       setIsAddDialogOpen(false);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message);
     }
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...product }: any) => {
+    mutationFn: async ({ id, ...product }: { id: string } & Partial<Product>) => {
       const { error } = await supabase
         .from('products')
-        .update(product)
+        .update(product as any)
         .eq('id', id);
       if (error) throw error;
     },
@@ -114,7 +115,7 @@ const Admin = () => {
       setEditingProduct(null);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message);
     }
   });
@@ -133,7 +134,7 @@ const Admin = () => {
       queryClient.invalidateQueries({ queryKey: ['featured-products'] });
       toast.success("Product deleted successfully");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message);
     }
   });
@@ -169,7 +170,7 @@ const Admin = () => {
     }
   };
 
-  const handleEdit = (product: any) => {
+  const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,

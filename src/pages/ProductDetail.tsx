@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { ShoppingCart, ArrowLeft, Shield, Truck, Award } from "lucide-react";
+import type { Product } from "@/types/product";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -21,7 +22,7 @@ const ProductDetail = () => {
         .maybeSingle();
       
       if (error) throw error;
-      return data;
+      return data as Product | null;
     },
     enabled: !!id
   });

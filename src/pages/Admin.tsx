@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +25,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Package, Users, ShoppingCart, TrendingUp } from "lucide-react";
+import { 
+  Plus, Pencil, Trash2, Package, AlertTriangle, 
+  TrendingUp, Settings, LayoutDashboard, Mail, Phone, 
+  MapPin, Facebook, Instagram, Twitter, Youtube, MessageCircle 
+} from "lucide-react";
 import { toast } from "sonner";
-import type { Product, UserRole } from "@/types/product";
+import type { Product } from "@/types/product";
+
+type SiteSettings = Record<string, string>;
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -40,6 +47,17 @@ const Admin = () => {
     category: "",
     image_url: "",
     featured: false,
+    stock: "0",
+  });
+  const [settingsData, setSettingsData] = useState<SiteSettings>({
+    email: "",
+    phone: "",
+    address: "",
+    facebook_url: "",
+    instagram_url: "",
+    twitter_url: "",
+    youtube_url: "",
+    whatsapp_number: "",
   });
 
   // Check admin access
@@ -68,6 +86,7 @@ const Admin = () => {
     checkAdmin();
   }, [navigate]);
 
+  // Fetch products
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
@@ -81,8 +100,34 @@ const Admin = () => {
     }
   });
 
+  // Fetch site settings
+  const { data: siteSettings } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('key, value');
+      
+      if (error) throw error;
+      
+      const settings: SiteSettings = {};
+      data?.forEach((item: { key: string; value: string | null }) => {
+        settings[item.key] = item.value || "";
+      });
+      return settings;
+    }
+  });
+
+  // Update settings state when fetched
+  useEffect(() => {
+    if (siteSettings) {
+      setSettingsData(prev => ({ ...prev, ...siteSettings }));
+    }
+  }, [siteSettings]);
+
+  // Mutations
   const addMutation = useMutation({
-    mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'stock'>) => {
+    mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
       const { error } = await supabase.from('products').insert([product] as any);
       if (error) throw error;
     },
@@ -139,6 +184,25 @@ const Admin = () => {
     }
   });
 
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (settings: SiteSettings) => {
+      for (const [key, value] of Object.entries(settings)) {
+        const { error } = await supabase
+          .from('site_settings')
+          .update({ value })
+          .eq('key', key);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] });
+      toast.success("Settings saved successfully");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -147,6 +211,7 @@ const Admin = () => {
       category: "",
       image_url: "",
       featured: false,
+      stock: "0",
     });
   };
 
@@ -159,8 +224,13 @@ const Admin = () => {
     }
 
     const product = {
-      ...formData,
+      name: formData.name,
+      description: formData.description,
       price: parseFloat(formData.price),
+      category: formData.category,
+      image_url: formData.image_url,
+      featured: formData.featured,
+      stock: parseInt(formData.stock) || 0,
     };
 
     if (editingProduct) {
@@ -179,14 +249,26 @@ const Admin = () => {
       category: product.category || "",
       image_url: product.image_url || "",
       featured: product.featured || false,
+      stock: product.stock?.toString() || "0",
     });
   };
 
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveSettingsMutation.mutate(settingsData);
+  };
+
+  // Stats calculations
+  const totalProducts = products?.length || 0;
+  const outOfStock = products?.filter(p => (p.stock || 0) <= 0).length || 0;
+  const totalValue = products?.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0) || 0;
+  const featuredCount = products?.filter(p => p.featured).length || 0;
+
   const stats = [
-    { icon: Package, label: "Total Products", value: products?.length || 0 },
-    { icon: TrendingUp, label: "Featured", value: products?.filter(p => p.featured).length || 0 },
-    { icon: ShoppingCart, label: "Categories", value: new Set(products?.map(p => p.category).filter(Boolean)).size || 0 },
-    { icon: Users, label: "Active", value: products?.length || 0 },
+    { icon: Package, label: "Total Products", value: totalProducts, color: "text-primary" },
+    { icon: AlertTriangle, label: "Out of Stock", value: outOfStock, color: "text-destructive" },
+    { icon: TrendingUp, label: "Featured", value: featuredCount, color: "text-primary" },
+    { icon: Package, label: "Total Value", value: `Rs. ${totalValue.toLocaleString()}`, color: "text-primary" },
   ];
 
   return (
@@ -195,158 +277,60 @@ const Admin = () => {
       
       <main className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div>
-              <h1 className="font-serif text-4xl font-bold text-foreground">Admin Panel</h1>
-              <p className="text-muted-foreground mt-2">Manage your products and store</p>
-            </div>
-            
-            <Dialog open={isAddDialogOpen || !!editingProduct} onOpenChange={(open) => {
-              if (!open) {
-                setIsAddDialogOpen(false);
-                setEditingProduct(null);
-                resetForm();
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="hero" onClick={() => setIsAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Product
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingProduct ? "Edit Product" : "Add New Product"}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Product Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Luxury Watch Model X"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Price (Rs.) *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="25000"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="Luxury, Sports, Classic..."
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="image_url">Image URL</Label>
-                    <Input
-                      id="image_url"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Product description..."
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="featured"
-                      checked={formData.featured}
-                      onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
-                    />
-                    <Label htmlFor="featured">Featured Product</Label>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <Button type="submit" variant="hero" className="flex-1">
-                      {editingProduct ? "Update" : "Add"} Product
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddDialogOpen(false);
-                        setEditingProduct(null);
-                        resetForm();
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+          <div className="mb-8">
+            <h1 className="font-serif text-4xl font-bold text-foreground">Admin Panel</h1>
+            <p className="text-muted-foreground mt-2">Manage your store, products and settings</p>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {stats.map((stat) => (
-              <Card key={stat.label}>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <stat.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-card-foreground">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Tabs defaultValue="dashboard" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="products" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Products
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Products Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Products</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">Loading...</div>
-              ) : products && products.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Image</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Featured</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {products.map((product) => (
-                        <TableRow key={product.id}>
-                          <TableCell>
+            {/* Dashboard Tab */}
+            <TabsContent value="dashboard" className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {stats.map((stat) => (
+                  <Card key={stat.label}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center`}>
+                          <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-card-foreground">
+                            {typeof stat.value === 'number' ? stat.value : stat.value}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{stat.label}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Recent Products */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Products</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {products && products.length > 0 ? (
+                    <div className="space-y-4">
+                      {products.slice(0, 5).map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                          <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded bg-muted overflow-hidden">
                               <img
                                 src={product.image_url || "/placeholder.svg"}
@@ -354,57 +338,365 @@ const Admin = () => {
                                 className="w-full h-full object-cover"
                               />
                             </div>
-                          </TableCell>
-                          <TableCell className="font-medium">{product.name}</TableCell>
-                          <TableCell>{product.category || "-"}</TableCell>
-                          <TableCell>Rs. {product.price.toLocaleString()}</TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              product.featured 
-                                ? "bg-primary/10 text-primary" 
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {product.featured ? "Yes" : "No"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEdit(product)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  if (confirm("Are you sure you want to delete this product?")) {
-                                    deleteMutation.mutate(product.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                            <div>
+                              <p className="font-medium">{product.name}</p>
+                              <p className="text-sm text-muted-foreground">Rs. {product.price.toLocaleString()}</p>
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs ${
+                            (product.stock || 0) > 0 
+                              ? "bg-primary/10 text-primary" 
+                              : "bg-destructive/10 text-destructive"
+                          }`}>
+                            {(product.stock || 0) > 0 ? `${product.stock} in stock` : "Out of stock"}
+                          </span>
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">No products yet</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Products Tab */}
+            <TabsContent value="products" className="space-y-6">
+              <div className="flex justify-end">
+                <Dialog open={isAddDialogOpen || !!editingProduct} onOpenChange={(open) => {
+                  if (!open) {
+                    setIsAddDialogOpen(false);
+                    setEditingProduct(null);
+                    resetForm();
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="hero" onClick={() => setIsAddDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editingProduct ? "Edit Product" : "Add New Product"}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Product Name *</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="Luxury Watch Model X"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="price">Price (Rs.) *</Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            value={formData.price}
+                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                            placeholder="25000"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stock">Stock</Label>
+                          <Input
+                            id="stock"
+                            type="number"
+                            value={formData.stock}
+                            onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                            placeholder="10"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Input
+                          id="category"
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                          placeholder="Luxury, Sports, Classic..."
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="image_url">Image URL</Label>
+                        <Input
+                          id="image_url"
+                          value={formData.image_url}
+                          onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                          placeholder="https://..."
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          placeholder="Product description..."
+                          rows={3}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          id="featured"
+                          checked={formData.featured}
+                          onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
+                        />
+                        <Label htmlFor="featured">Featured Product</Label>
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <Button type="submit" variant="hero" className="flex-1">
+                          {editingProduct ? "Update" : "Add"} Product
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddDialogOpen(false);
+                            setEditingProduct(null);
+                            resetForm();
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Products</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="text-center py-8">Loading...</div>
+                  ) : products && products.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Image</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Featured</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {products.map((product) => (
+                            <TableRow key={product.id}>
+                              <TableCell>
+                                <div className="w-12 h-12 rounded bg-muted overflow-hidden">
+                                  <img
+                                    src={product.image_url || "/placeholder.svg"}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{product.name}</TableCell>
+                              <TableCell>{product.category || "-"}</TableCell>
+                              <TableCell>Rs. {product.price.toLocaleString()}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  (product.stock || 0) > 0 
+                                    ? "bg-primary/10 text-primary" 
+                                    : "bg-destructive/10 text-destructive"
+                                }`}>
+                                  {product.stock || 0}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  product.featured 
+                                    ? "bg-primary/10 text-primary" 
+                                    : "bg-muted text-muted-foreground"
+                                }`}>
+                                  {product.featured ? "Yes" : "No"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEdit(product)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (confirm("Are you sure you want to delete this product?")) {
+                                        deleteMutation.mutate(product.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">No products yet</p>
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Your First Product
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-6">
+              <form onSubmit={handleSaveSettings}>
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Contact Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5" />
+                        Contact Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" /> Email
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={settingsData.email}
+                          onChange={(e) => setSettingsData({ ...settingsData, email: e.target.value })}
+                          placeholder="info@example.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone" className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" /> Phone
+                        </Label>
+                        <Input
+                          id="phone"
+                          value={settingsData.phone}
+                          onChange={(e) => setSettingsData({ ...settingsData, phone: e.target.value })}
+                          placeholder="+92 300 1234567"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address" className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4" /> Address
+                        </Label>
+                        <Input
+                          id="address"
+                          value={settingsData.address}
+                          onChange={(e) => setSettingsData({ ...settingsData, address: e.target.value })}
+                          placeholder="City, Country"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Social Media Links */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Instagram className="h-5 w-5" />
+                        Social Media Links
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="facebook" className="flex items-center gap-2">
+                          <Facebook className="h-4 w-4" /> Facebook URL
+                        </Label>
+                        <Input
+                          id="facebook"
+                          value={settingsData.facebook_url}
+                          onChange={(e) => setSettingsData({ ...settingsData, facebook_url: e.target.value })}
+                          placeholder="https://facebook.com/yourpage"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="instagram" className="flex items-center gap-2">
+                          <Instagram className="h-4 w-4" /> Instagram URL
+                        </Label>
+                        <Input
+                          id="instagram"
+                          value={settingsData.instagram_url}
+                          onChange={(e) => setSettingsData({ ...settingsData, instagram_url: e.target.value })}
+                          placeholder="https://instagram.com/yourpage"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="twitter" className="flex items-center gap-2">
+                          <Twitter className="h-4 w-4" /> Twitter URL
+                        </Label>
+                        <Input
+                          id="twitter"
+                          value={settingsData.twitter_url}
+                          onChange={(e) => setSettingsData({ ...settingsData, twitter_url: e.target.value })}
+                          placeholder="https://twitter.com/yourpage"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="youtube" className="flex items-center gap-2">
+                          <Youtube className="h-4 w-4" /> YouTube URL
+                        </Label>
+                        <Input
+                          id="youtube"
+                          value={settingsData.youtube_url}
+                          onChange={(e) => setSettingsData({ ...settingsData, youtube_url: e.target.value })}
+                          placeholder="https://youtube.com/@yourchannel"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp" className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4" /> WhatsApp Number
+                        </Label>
+                        <Input
+                          id="whatsapp"
+                          value={settingsData.whatsapp_number}
+                          onChange={(e) => setSettingsData({ ...settingsData, whatsapp_number: e.target.value })}
+                          placeholder="+923001234567"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No products yet</p>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Product
+
+                <div className="mt-6">
+                  <Button type="submit" variant="hero" disabled={saveSettingsMutation.isPending}>
+                    {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </form>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

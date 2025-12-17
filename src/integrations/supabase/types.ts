@@ -14,8 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      orders: {
+        Row: {
+          created_at: string
+          customer_address: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          id: string
+          notes: string | null
+          product_id: string | null
+          product_image_url: string | null
+          product_name: string
+          product_price: number
+          quantity: number
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_address?: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          product_image_url?: string | null
+          product_name: string
+          product_price: number
+          quantity?: number
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_address?: string | null
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          product_image_url?: string | null
+          product_name?: string
+          product_price?: number
+          quantity?: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          authenticity_text: string | null
           category: string
           created_at: string
           description: string | null
@@ -24,10 +87,13 @@ export type Database = {
           image_url: string | null
           name: string
           price: number
+          shipping_text: string | null
           stock: number
           updated_at: string
+          warranty_text: string | null
         }
         Insert: {
+          authenticity_text?: string | null
           category?: string
           created_at?: string
           description?: string | null
@@ -36,10 +102,13 @@ export type Database = {
           image_url?: string | null
           name: string
           price: number
+          shipping_text?: string | null
           stock?: number
           updated_at?: string
+          warranty_text?: string | null
         }
         Update: {
+          authenticity_text?: string | null
           category?: string
           created_at?: string
           description?: string | null
@@ -48,8 +117,10 @@ export type Database = {
           image_url?: string | null
           name?: string
           price?: number
+          shipping_text?: string | null
           stock?: number
           updated_at?: string
+          warranty_text?: string | null
         }
         Relationships: []
       }

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingCart, Eye } from "lucide-react";
+import { ShoppingCart, Eye, Shield, Truck, CheckCircle } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
@@ -10,9 +10,21 @@ interface ProductCardProps {
   price: number;
   image_url: string;
   category?: string;
+  warranty_text?: string | null;
+  shipping_text?: string | null;
+  authenticity_text?: string | null;
 }
 
-const ProductCard = ({ id, name, price, image_url, category }: ProductCardProps) => {
+const ProductCard = ({ 
+  id, 
+  name, 
+  price, 
+  image_url, 
+  category,
+  warranty_text,
+  shipping_text,
+  authenticity_text
+}: ProductCardProps) => {
   const { addItem } = useCart();
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -58,9 +70,31 @@ const ProductCard = ({ id, name, price, image_url, category }: ProductCardProps)
           <h3 className="font-serif text-lg font-semibold text-card-foreground mb-2 line-clamp-1 group-hover:text-primary transition-colors">
             {name}
           </h3>
-          <p className="text-xl font-bold text-primary">
+          <p className="text-xl font-bold text-primary mb-3">
             Rs. {price.toLocaleString()}
           </p>
+          
+          {/* Product Features */}
+          <div className="flex flex-wrap gap-2">
+            {warranty_text && (
+              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                <CheckCircle className="h-3 w-3" />
+                {warranty_text}
+              </span>
+            )}
+            {shipping_text && (
+              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                <Truck className="h-3 w-3" />
+                {shipping_text}
+              </span>
+            )}
+            {authenticity_text && (
+              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                <Shield className="h-3 w-3" />
+                {authenticity_text}
+              </span>
+            )}
+          </div>
         </CardContent>
       </Link>
     </Card>

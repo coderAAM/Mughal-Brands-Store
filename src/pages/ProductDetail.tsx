@@ -127,18 +127,24 @@ const ProductDetail = () => {
 
               {/* Features */}
               <div className="grid grid-cols-3 gap-4 border-t border-border pt-8">
-                <div className="flex flex-col items-center text-center">
-                  <Shield className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">2 Year Warranty</span>
-                </div>
-                <div className="flex flex-col items-center text-center">
-                  <Truck className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">Free Shipping</span>
-                </div>
-                <div className="flex flex-col items-center text-center">
-                  <Award className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">Authentic</span>
-                </div>
+                {product.warranty_text && (
+                  <div className="flex flex-col items-center text-center">
+                    <Shield className="h-8 w-8 text-primary mb-2" />
+                    <span className="text-sm font-medium">{product.warranty_text}</span>
+                  </div>
+                )}
+                {product.shipping_text && (
+                  <div className="flex flex-col items-center text-center">
+                    <Truck className="h-8 w-8 text-primary mb-2" />
+                    <span className="text-sm font-medium">{product.shipping_text}</span>
+                  </div>
+                )}
+                {product.authenticity_text && (
+                  <div className="flex flex-col items-center text-center">
+                    <Award className="h-8 w-8 text-primary mb-2" />
+                    <span className="text-sm font-medium">{product.authenticity_text}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

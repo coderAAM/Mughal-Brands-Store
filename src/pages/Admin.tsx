@@ -28,10 +28,11 @@ import {
 import { 
   Plus, Pencil, Trash2, Package, AlertTriangle, 
   TrendingUp, Settings, LayoutDashboard, Mail, Phone, 
-  MapPin, Facebook, Instagram, Twitter, Youtube, MessageCircle 
+  MapPin, Facebook, Instagram, Twitter, Youtube, MessageCircle,
+  ShoppingCart, Eye, Shield, Truck, CheckCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Product } from "@/types/product";
+import type { Product, Order } from "@/types/product";
 
 type SiteSettings = Record<string, string>;
 
@@ -40,6 +41,7 @@ const Admin = () => {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -48,6 +50,9 @@ const Admin = () => {
     image_url: "",
     featured: false,
     stock: "0",
+    warranty_text: "2 Year Warranty",
+    shipping_text: "Free Shipping",
+    authenticity_text: "Authentic",
   });
   const [settingsData, setSettingsData] = useState<SiteSettings>({
     email: "",
@@ -97,6 +102,20 @@ const Admin = () => {
       
       if (error) throw error;
       return data as Product[];
+    }
+  });
+
+  // Fetch orders
+  const { data: orders, isLoading: ordersLoading } = useQuery({
+    queryKey: ['admin-orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Order[];
     }
   });
 
@@ -184,6 +203,40 @@ const Admin = () => {
     }
   });
 
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success("Order status updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success("Order deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
   const saveSettingsMutation = useMutation({
     mutationFn: async (settings: SiteSettings) => {
       for (const [key, value] of Object.entries(settings)) {
@@ -212,6 +265,9 @@ const Admin = () => {
       image_url: "",
       featured: false,
       stock: "0",
+      warranty_text: "2 Year Warranty",
+      shipping_text: "Free Shipping",
+      authenticity_text: "Authentic",
     });
   };
 
@@ -231,6 +287,9 @@ const Admin = () => {
       image_url: formData.image_url,
       featured: formData.featured,
       stock: parseInt(formData.stock) || 0,
+      warranty_text: formData.warranty_text,
+      shipping_text: formData.shipping_text,
+      authenticity_text: formData.authenticity_text,
     };
 
     if (editingProduct) {
@@ -250,6 +309,9 @@ const Admin = () => {
       image_url: product.image_url || "",
       featured: product.featured || false,
       stock: product.stock?.toString() || "0",
+      warranty_text: product.warranty_text || "2 Year Warranty",
+      shipping_text: product.shipping_text || "Free Shipping",
+      authenticity_text: product.authenticity_text || "Authentic",
     });
   };
 
@@ -263,13 +325,28 @@ const Admin = () => {
   const outOfStock = products?.filter(p => (p.stock || 0) <= 0).length || 0;
   const totalValue = products?.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0) || 0;
   const featuredCount = products?.filter(p => p.featured).length || 0;
+  const totalOrders = orders?.length || 0;
+  const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0;
 
   const stats = [
     { icon: Package, label: "Total Products", value: totalProducts, color: "text-primary" },
     { icon: AlertTriangle, label: "Out of Stock", value: outOfStock, color: "text-destructive" },
     { icon: TrendingUp, label: "Featured", value: featuredCount, color: "text-primary" },
     { icon: Package, label: "Total Value", value: `Rs. ${totalValue.toLocaleString()}`, color: "text-primary" },
+    { icon: ShoppingCart, label: "Total Orders", value: totalOrders, color: "text-primary" },
+    { icon: AlertTriangle, label: "Pending Orders", value: pendingOrders, color: "text-destructive" },
   ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/10 text-yellow-600';
+      case 'confirmed': return 'bg-blue-500/10 text-blue-600';
+      case 'shipped': return 'bg-purple-500/10 text-purple-600';
+      case 'delivered': return 'bg-green-500/10 text-green-600';
+      case 'cancelled': return 'bg-red-500/10 text-red-600';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -279,11 +356,11 @@ const Admin = () => {
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <h1 className="font-serif text-4xl font-bold text-foreground">Admin Panel</h1>
-            <p className="text-muted-foreground mt-2">Manage your store, products and settings</p>
+            <p className="text-muted-foreground mt-2">Manage your store, products, orders and settings</p>
           </div>
 
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -291,6 +368,10 @@ const Admin = () => {
               <TabsTrigger value="products" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
                 Products
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Orders
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
@@ -300,61 +381,58 @@ const Admin = () => {
 
             {/* Dashboard Tab */}
             <TabsContent value="dashboard" className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {stats.map((stat) => (
                   <Card key={stat.label}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center`}>
-                          <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                    <CardContent className="p-4">
+                      <div className="flex flex-col items-center text-center">
+                        <div className={`w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2`}>
+                          <stat.icon className={`h-5 w-5 ${stat.color}`} />
                         </div>
-                        <div>
-                          <p className="text-2xl font-bold text-card-foreground">
-                            {typeof stat.value === 'number' ? stat.value : stat.value}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{stat.label}</p>
-                        </div>
+                        <p className="text-xl font-bold text-card-foreground">
+                          {typeof stat.value === 'number' ? stat.value : stat.value}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              {/* Recent Products */}
+              {/* Recent Orders */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Products</CardTitle>
+                  <CardTitle>Recent Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {products && products.length > 0 ? (
+                  {orders && orders.length > 0 ? (
                     <div className="space-y-4">
-                      {products.slice(0, 5).map((product) => (
-                        <div key={product.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      {orders.slice(0, 5).map((order) => (
+                        <div key={order.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded bg-muted overflow-hidden">
                               <img
-                                src={product.image_url || "/placeholder.svg"}
-                                alt={product.name}
+                                src={order.product_image_url || "/placeholder.svg"}
+                                alt={order.product_name}
                                 className="w-full h-full object-cover"
                               />
                             </div>
                             <div>
-                              <p className="font-medium">{product.name}</p>
-                              <p className="text-sm text-muted-foreground">Rs. {product.price.toLocaleString()}</p>
+                              <p className="font-medium">{order.customer_name}</p>
+                              <p className="text-sm text-muted-foreground">{order.product_name}</p>
                             </div>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs ${
-                            (product.stock || 0) > 0 
-                              ? "bg-primary/10 text-primary" 
-                              : "bg-destructive/10 text-destructive"
-                          }`}>
-                            {(product.stock || 0) > 0 ? `${product.stock} in stock` : "Out of stock"}
-                          </span>
+                          <div className="text-right">
+                            <p className="font-bold text-primary">Rs. {order.total_amount.toLocaleString()}</p>
+                            <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-center text-muted-foreground py-8">No products yet</p>
+                    <p className="text-center text-muted-foreground py-8">No orders yet</p>
                   )}
                 </CardContent>
               </Card>
@@ -376,7 +454,7 @@ const Admin = () => {
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>
                         {editingProduct ? "Edit Product" : "Add New Product"}
@@ -445,6 +523,46 @@ const Admin = () => {
                           placeholder="Product description..."
                           rows={3}
                         />
+                      </div>
+
+                      {/* Product Features */}
+                      <div className="border border-border rounded-lg p-4 space-y-4">
+                        <h4 className="font-medium flex items-center gap-2">
+                          <Shield className="h-4 w-4" /> Product Features
+                        </h4>
+                        <div className="space-y-2">
+                          <Label htmlFor="warranty_text" className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" /> Warranty Text
+                          </Label>
+                          <Input
+                            id="warranty_text"
+                            value={formData.warranty_text}
+                            onChange={(e) => setFormData({ ...formData, warranty_text: e.target.value })}
+                            placeholder="2 Year Warranty"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shipping_text" className="flex items-center gap-2">
+                            <Truck className="h-4 w-4" /> Shipping Text
+                          </Label>
+                          <Input
+                            id="shipping_text"
+                            value={formData.shipping_text}
+                            onChange={(e) => setFormData({ ...formData, shipping_text: e.target.value })}
+                            placeholder="Free Shipping"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="authenticity_text" className="flex items-center gap-2">
+                            <Shield className="h-4 w-4" /> Authenticity Text
+                          </Label>
+                          <Input
+                            id="authenticity_text"
+                            value={formData.authenticity_text}
+                            onChange={(e) => setFormData({ ...formData, authenticity_text: e.target.value })}
+                            placeholder="Authentic"
+                          />
+                        </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
@@ -566,6 +684,146 @@ const Admin = () => {
                         Add Your First Product
                       </Button>
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Orders Tab */}
+            <TabsContent value="orders" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {ordersLoading ? (
+                    <div className="text-center py-8">Loading...</div>
+                  ) : orders && orders.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orders.map((order) => (
+                            <TableRow key={order.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-12 h-12 rounded bg-muted overflow-hidden">
+                                    <img
+                                      src={order.product_image_url || "/placeholder.svg"}
+                                      alt={order.product_name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{order.product_name}</p>
+                                    <p className="text-sm text-muted-foreground">Qty: {order.quantity}</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <p className="font-medium">{order.customer_name}</p>
+                                <p className="text-sm text-muted-foreground">{order.customer_email}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p>{order.customer_phone}</p>
+                              </TableCell>
+                              <TableCell className="font-bold text-primary">
+                                Rs. {order.total_amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <select
+                                  value={order.status}
+                                  onChange={(e) => updateOrderStatusMutation.mutate({ id: order.id, status: e.target.value })}
+                                  className={`px-2 py-1 rounded-full text-xs border-0 cursor-pointer ${getStatusColor(order.status)}`}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="confirmed">Confirmed</option>
+                                  <option value="shipped">Shipped</option>
+                                  <option value="delivered">Delivered</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              </TableCell>
+                              <TableCell>
+                                {new Date(order.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setViewingOrder(order)}
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Order Details</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        <div className="flex gap-4">
+                                          <div className="w-24 h-24 rounded bg-muted overflow-hidden">
+                                            <img
+                                              src={order.product_image_url || "/placeholder.svg"}
+                                              alt={order.product_name}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                          <div>
+                                            <h4 className="font-bold">{order.product_name}</h4>
+                                            <p className="text-primary font-bold">Rs. {order.product_price.toLocaleString()}</p>
+                                            <p className="text-sm text-muted-foreground">Qty: {order.quantity}</p>
+                                          </div>
+                                        </div>
+                                        <div className="border-t border-border pt-4 space-y-2">
+                                          <p><strong>Customer:</strong> {order.customer_name}</p>
+                                          <p><strong>Email:</strong> {order.customer_email}</p>
+                                          <p><strong>Phone:</strong> {order.customer_phone}</p>
+                                          {order.customer_address && (
+                                            <p><strong>Address:</strong> {order.customer_address}</p>
+                                          )}
+                                          {order.notes && (
+                                            <p><strong>Notes:</strong> {order.notes}</p>
+                                          )}
+                                          <p><strong>Total:</strong> <span className="text-primary font-bold">Rs. {order.total_amount.toLocaleString()}</span></p>
+                                          <p><strong>Status:</strong> <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(order.status)}`}>{order.status}</span></p>
+                                          <p><strong>Date:</strong> {new Date(order.created_at).toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (confirm("Are you sure you want to delete this order?")) {
+                                        deleteOrderMutation.mutate(order.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">No orders yet</p>
                   )}
                 </CardContent>
               </Card>

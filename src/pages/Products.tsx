@@ -142,6 +142,9 @@ const Products = () => {
                   price={product.price}
                   image_url={product.image_url}
                   category={product.category}
+                  warranty_text={product.warranty_text}
+                  shipping_text={product.shipping_text}
+                  authenticity_text={product.authenticity_text}
                 />
               ))}
             </div>

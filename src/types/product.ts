@@ -16,6 +16,7 @@ export interface Product {
 
 export interface Order {
   id: string;
+  tracking_id: string;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
@@ -30,6 +31,15 @@ export interface Order {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: string;
+  created_at: string;
 }
 
 export interface UserRole {

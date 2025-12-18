@@ -32,7 +32,7 @@ import {
   ShoppingCart, Eye, Shield, Truck, CheckCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Product, Order } from "@/types/product";
+import type { Product, Order, ContactMessage } from "@/types/product";
 
 type SiteSettings = Record<string, string>;
 
@@ -116,6 +116,20 @@ const Admin = () => {
       
       if (error) throw error;
       return data as Order[];
+    }
+  });
+
+  // Fetch contact messages
+  const { data: messages, isLoading: messagesLoading } = useQuery({
+    queryKey: ['admin-messages'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('contact_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as ContactMessage[];
     }
   });
 
@@ -256,6 +270,40 @@ const Admin = () => {
     }
   });
 
+  const updateMessageStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await (supabase as any)
+        .from('contact_messages')
+        .update({ status })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-messages'] });
+      toast.success("Message status updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('contact_messages')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-messages'] });
+      toast.success("Message deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -360,7 +408,7 @@ const Admin = () => {
           </div>
 
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+            <TabsList className="grid w-full grid-cols-5 lg:w-[625px]">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -372,6 +420,10 @@ const Admin = () => {
               <TabsTrigger value="orders" className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
                 Orders
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Messages
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
@@ -703,6 +755,7 @@ const Admin = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead>Tracking ID</TableHead>
                             <TableHead>Product</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead>Contact</TableHead>
@@ -715,6 +768,11 @@ const Admin = () => {
                         <TableBody>
                           {orders.map((order) => (
                             <TableRow key={order.id}>
+                              <TableCell>
+                                <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                  {(order as any).tracking_id || '-'}
+                                </span>
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-3">
                                   <div className="w-12 h-12 rounded bg-muted overflow-hidden">
@@ -788,6 +846,7 @@ const Admin = () => {
                                           </div>
                                         </div>
                                         <div className="border-t border-border pt-4 space-y-2">
+                                          <p><strong>Tracking ID:</strong> <span className="font-mono bg-muted px-2 py-1 rounded text-sm">{(order as any).tracking_id || '-'}</span></p>
                                           <p><strong>Customer:</strong> {order.customer_name}</p>
                                           <p><strong>Email:</strong> {order.customer_email}</p>
                                           <p><strong>Phone:</strong> {order.customer_phone}</p>
@@ -824,6 +883,104 @@ const Admin = () => {
                     </div>
                   ) : (
                     <p className="text-center text-muted-foreground py-8">No orders yet</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Messages Tab */}
+            <TabsContent value="messages" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contact Messages</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {messagesLoading ? (
+                    <div className="text-center py-8">Loading...</div>
+                  ) : messages && messages.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Message</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {messages.map((msg) => (
+                            <TableRow key={msg.id}>
+                              <TableCell className="font-medium">{msg.name}</TableCell>
+                              <TableCell>{msg.email}</TableCell>
+                              <TableCell className="max-w-xs truncate">{msg.message}</TableCell>
+                              <TableCell>
+                                <select
+                                  value={msg.status}
+                                  onChange={(e) => updateMessageStatusMutation.mutate({ id: msg.id, status: e.target.value })}
+                                  className={`px-2 py-1 rounded-full text-xs border-0 cursor-pointer ${
+                                    msg.status === 'new' ? 'bg-blue-500/10 text-blue-600' :
+                                    msg.status === 'read' ? 'bg-yellow-500/10 text-yellow-600' :
+                                    'bg-green-500/10 text-green-600'
+                                  }`}
+                                >
+                                  <option value="new">New</option>
+                                  <option value="read">Read</option>
+                                  <option value="replied">Replied</option>
+                                </select>
+                              </TableCell>
+                              <TableCell>{new Date(msg.created_at).toLocaleDateString()}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Message Details</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">From</p>
+                                          <p className="font-medium">{msg.name}</p>
+                                          <p className="text-sm">{msg.email}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Message</p>
+                                          <p className="whitespace-pre-wrap">{msg.message}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Received</p>
+                                          <p>{new Date(msg.created_at).toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (confirm("Are you sure you want to delete this message?")) {
+                                        deleteMessageMutation.mutate(msg.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">No messages yet</p>
                   )}
                 </CardContent>
               </Card>

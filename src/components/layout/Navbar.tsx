@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, Menu, X, LogOut, Shield } from "lucide-react";
+import { ShoppingCart, User, Menu, X, LogOut, Shield, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +90,12 @@ const Navbar = () => {
             >
               Contact
             </Link>
+            <Link 
+              to="/track-order" 
+              className="text-foreground/80 hover:text-primary transition-colors font-medium"
+            >
+              Track Order
+            </Link>
           </div>
 
           {/* Actions */}
@@ -169,6 +175,13 @@ const Navbar = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Contact
+              </Link>
+              <Link 
+                to="/track-order" 
+                className="text-foreground/80 hover:text-primary transition-colors font-medium py-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Track Order
               </Link>
               <div className="flex items-center gap-4 pt-4 border-t border-border">
                 <Link to="/cart" onClick={() => setIsMenuOpen(false)}>

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -511,6 +512,9 @@ const Admin = () => {
                       <DialogTitle>
                         {editingProduct ? "Edit Product" : "Add New Product"}
                       </DialogTitle>
+                      <DialogDescription>
+                        {editingProduct ? "Update the product details below" : "Fill in the details to add a new product"}
+                      </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <div className="space-y-2">
@@ -829,6 +833,7 @@ const Admin = () => {
                                     <DialogContent>
                                       <DialogHeader>
                                         <DialogTitle>Order Details</DialogTitle>
+                                        <DialogDescription>View complete order information</DialogDescription>
                                       </DialogHeader>
                                       <div className="space-y-4">
                                         <div className="flex gap-4">
@@ -943,6 +948,7 @@ const Admin = () => {
                                     <DialogContent>
                                       <DialogHeader>
                                         <DialogTitle>Message Details</DialogTitle>
+                                        <DialogDescription>View the full contact message</DialogDescription>
                                       </DialogHeader>
                                       <div className="space-y-4">
                                         <div>

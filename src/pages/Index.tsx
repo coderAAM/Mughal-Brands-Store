@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Award, Shield, Truck, Clock } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/products/ProductCard";
@@ -24,28 +24,6 @@ const Index = () => {
     }
   });
 
-  const features = [
-    {
-      icon: Award,
-      title: "Premium Quality",
-      description: "Crafted with the finest materials for lasting elegance"
-    },
-    {
-      icon: Shield,
-      title: "2 Year Warranty",
-      description: "Complete protection for your valuable timepiece"
-    },
-    {
-      icon: Truck,
-      title: "Free Shipping",
-      description: "Complimentary delivery on orders over Rs. 10,000"
-    },
-    {
-      icon: Clock,
-      title: "Authentic Pieces",
-      description: "100% genuine watches with certification"
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,26 +68,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-card">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.title}
-                className="flex flex-col items-center text-center p-8 rounded-lg hover:bg-muted/50 transition-colors group"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
-                  <feature.icon className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2 text-card-foreground">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Featured Products */}
       <section className="py-20">

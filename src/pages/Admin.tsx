@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +30,7 @@ import {
   Plus, Pencil, Trash2, Package, AlertTriangle, 
   TrendingUp, Settings, LayoutDashboard, Mail, Phone, 
   MapPin, Facebook, Instagram, Twitter, Youtube, MessageCircle,
-  ShoppingCart, Eye, Shield, Truck, CheckCircle
+  ShoppingCart, Eye, Shield, Truck, CheckCircle, Upload, ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Product, Order, ContactMessage } from "@/types/product";
@@ -43,6 +43,10 @@ const Admin = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -318,9 +322,44 @@ const Admin = () => {
       shipping_text: "Free Shipping",
       authenticity_text: "Authentic",
     });
+    setImageFile(null);
+    setImagePreview("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size should be less than 5MB");
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.price) {
@@ -328,23 +367,38 @@ const Admin = () => {
       return;
     }
 
-    const product = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      category: formData.category,
-      image_url: formData.image_url,
-      featured: formData.featured,
-      stock: parseInt(formData.stock) || 0,
-      warranty_text: formData.warranty_text,
-      shipping_text: formData.shipping_text,
-      authenticity_text: formData.authenticity_text,
-    };
+    setIsUploading(true);
 
-    if (editingProduct) {
-      updateMutation.mutate({ id: editingProduct.id, ...product });
-    } else {
-      addMutation.mutate(product);
+    try {
+      let imageUrl = formData.image_url;
+
+      // Upload image if a new file was selected
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
+      const product = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        image_url: imageUrl,
+        featured: formData.featured,
+        stock: parseInt(formData.stock) || 0,
+        warranty_text: formData.warranty_text,
+        shipping_text: formData.shipping_text,
+        authenticity_text: formData.authenticity_text,
+      };
+
+      if (editingProduct) {
+        updateMutation.mutate({ id: editingProduct.id, ...product });
+      } else {
+        addMutation.mutate(product);
+      }
+    } catch (error: any) {
+      toast.error("Failed to upload image: " + error.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -362,6 +416,8 @@ const Admin = () => {
       shipping_text: product.shipping_text || "Free Shipping",
       authenticity_text: product.authenticity_text || "Authentic",
     });
+    setImagePreview(product.image_url || "");
+    setImageFile(null);
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -561,13 +617,39 @@ const Admin = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="image_url">Image URL</Label>
-                        <Input
-                          id="image_url"
-                          value={formData.image_url}
-                          onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                          placeholder="https://..."
+                        <Label className="flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4" /> Product Image
+                        </Label>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
                         />
+                        <div 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-colors"
+                        >
+                          {imagePreview || formData.image_url ? (
+                            <div className="relative">
+                              <img 
+                                src={imagePreview || formData.image_url} 
+                                alt="Preview" 
+                                className="w-full h-32 object-cover rounded-lg"
+                              />
+                              <div className="absolute inset-0 bg-background/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                <p className="text-sm font-medium">Click to change</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+                              <Upload className="h-8 w-8 mb-2" />
+                              <p className="text-sm">Click to upload image</p>
+                              <p className="text-xs">Max 5MB</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       
                       <div className="space-y-2">
@@ -631,8 +713,8 @@ const Admin = () => {
                       </div>
                       
                       <div className="flex gap-3">
-                        <Button type="submit" variant="hero" className="flex-1">
-                          {editingProduct ? "Update" : "Add"} Product
+                        <Button type="submit" variant="hero" className="flex-1" disabled={isUploading}>
+                          {isUploading ? "Uploading..." : editingProduct ? "Update Product" : "Add Product"}
                         </Button>
                         <Button 
                           type="button" 

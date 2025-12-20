@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CartItem } from "@/contexts/CartContext";
-import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle } from "lucide-react";
+import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy } from "lucide-react";
 
 interface CheckoutFormProps {
   items: CartItem[];
@@ -18,6 +18,8 @@ interface CheckoutFormProps {
 
 const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [trackingIds, setTrackingIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -25,6 +27,11 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     address: "",
     notes: "",
   });
+
+  const handleCopyTrackingId = (trackingId: string) => {
+    navigator.clipboard.writeText(trackingId);
+    toast.success("Tracking ID copied to clipboard!");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,12 +60,18 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         status: "pending",
       }));
 
-      const { error } = await supabase.from("orders").insert(orders as any);
+      const { data, error } = await supabase
+        .from("orders")
+        .insert(orders as any)
+        .select("tracking_id");
 
       if (error) throw error;
 
-      toast.success("Order placed successfully! We will contact you shortly.");
-      onSuccess();
+      // Get tracking IDs from the response
+      const ids = data?.map((order: any) => order.tracking_id).filter(Boolean) || [];
+      setTrackingIds(ids);
+      setOrderSuccess(true);
+      toast.success("Order placed successfully!");
     } catch (error: any) {
       console.error("Checkout error:", error);
       toast.error("Failed to place order. Please try again.");
@@ -66,6 +79,50 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       setIsSubmitting(false);
     }
   };
+
+  // Show success screen with tracking IDs
+  if (orderSuccess) {
+    return (
+      <div className="max-w-lg mx-auto text-center space-y-6">
+        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+          <CheckCircle className="h-10 w-10 text-primary" />
+        </div>
+        <h2 className="font-serif text-3xl font-bold text-foreground">Order Placed Successfully!</h2>
+        <p className="text-muted-foreground">
+          Thank you for your order. We will contact you shortly to confirm your order.
+        </p>
+        
+        {trackingIds.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Your Tracking ID{trackingIds.length > 1 ? 's' : ''}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {trackingIds.map((trackingId, index) => (
+                <div key={index} className="flex items-center justify-between gap-3 p-3 bg-muted rounded-lg">
+                  <code className="font-mono text-sm text-primary font-bold">{trackingId}</code>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleCopyTrackingId(trackingId)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <p className="text-sm text-muted-foreground mt-4">
+                Save this tracking ID to track your order status on our website.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <Button variant="hero" onClick={onSuccess}>
+          Continue Shopping
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CartItem } from "@/contexts/CartContext";
 import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy, CreditCard, Smartphone, Building2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface CheckoutFormProps {
   items: CartItem[];
@@ -17,38 +18,22 @@ interface CheckoutFormProps {
   onBack: () => void;
 }
 
+interface PaymentSettings {
+  easypaisa_title: string;
+  easypaisa_number: string;
+  jazzcash_title: string;
+  jazzcash_number: string;
+  bank_name: string;
+  bank_title: string;
+  bank_account: string;
+  bank_iban: string;
+}
+
 const PAYMENT_METHODS = {
-  cod: {
-    label: "Cash on Delivery",
-    icon: CreditCard,
-    details: null,
-  },
-  easypaisa: {
-    label: "Easypaisa",
-    icon: Smartphone,
-    details: {
-      accountTitle: "Muhammad Ali",
-      accountNumber: "0300-1234567",
-    },
-  },
-  jazzcash: {
-    label: "JazzCash",
-    icon: Smartphone,
-    details: {
-      accountTitle: "Muhammad Ali",
-      accountNumber: "0301-7654321",
-    },
-  },
-  bank: {
-    label: "Bank Transfer",
-    icon: Building2,
-    details: {
-      bankName: "HBL Bank",
-      accountTitle: "Muhammad Ali",
-      accountNumber: "1234567890123",
-      iban: "PK00HABB0001234567890123",
-    },
-  },
+  cod: { label: "Cash on Delivery", icon: CreditCard },
+  easypaisa: { label: "Easypaisa", icon: Smartphone },
+  jazzcash: { label: "JazzCash", icon: Smartphone },
+  bank: { label: "Bank Transfer", icon: Building2 },
 };
 
 const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) => {
@@ -63,6 +48,64 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     address: "",
     notes: "",
   });
+
+  // Fetch payment settings from database
+  const { data: paymentSettings } = useQuery({
+    queryKey: ['payment-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('key, value')
+        .in('key', ['easypaisa_title', 'easypaisa_number', 'jazzcash_title', 'jazzcash_number', 'bank_name', 'bank_title', 'bank_account', 'bank_iban']);
+      
+      if (error) throw error;
+      
+      const settings: PaymentSettings = {
+        easypaisa_title: "",
+        easypaisa_number: "",
+        jazzcash_title: "",
+        jazzcash_number: "",
+        bank_name: "",
+        bank_title: "",
+        bank_account: "",
+        bank_iban: "",
+      };
+      
+      data?.forEach((item: { key: string; value: string | null }) => {
+        if (item.key in settings) {
+          (settings as any)[item.key] = item.value || "";
+        }
+      });
+      
+      return settings;
+    }
+  });
+
+  const getPaymentDetails = (method: string) => {
+    if (!paymentSettings) return null;
+    
+    switch (method) {
+      case 'easypaisa':
+        return paymentSettings.easypaisa_title && paymentSettings.easypaisa_number ? {
+          accountTitle: paymentSettings.easypaisa_title,
+          accountNumber: paymentSettings.easypaisa_number,
+        } : null;
+      case 'jazzcash':
+        return paymentSettings.jazzcash_title && paymentSettings.jazzcash_number ? {
+          accountTitle: paymentSettings.jazzcash_title,
+          accountNumber: paymentSettings.jazzcash_number,
+        } : null;
+      case 'bank':
+        return paymentSettings.bank_name && paymentSettings.bank_account ? {
+          bankName: paymentSettings.bank_name,
+          accountTitle: paymentSettings.bank_title,
+          accountNumber: paymentSettings.bank_account,
+          iban: paymentSettings.bank_iban,
+        } : null;
+      default:
+        return null;
+    }
+  };
 
   const handleCopyTrackingId = (trackingId: string) => {
     navigator.clipboard.writeText(trackingId);
@@ -85,8 +128,6 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     setIsSubmitting(true);
 
     try {
-      const finalTotal = total >= 10000 ? total : total + 500;
-      
       // Create an order for each item in the cart
       const orders = items.map((item) => ({
         customer_name: formData.name,
@@ -126,6 +167,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
   };
 
   const selectedPayment = PAYMENT_METHODS[paymentMethod as keyof typeof PAYMENT_METHODS];
+  const currentPaymentDetails = getPaymentDetails(paymentMethod);
 
   // Show success screen with tracking IDs
   if (orderSuccess) {
@@ -140,7 +182,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         </p>
         
         {/* Show payment details if not COD */}
-        {paymentMethod !== "cod" && selectedPayment.details && (
+        {paymentMethod !== "cod" && currentPaymentDetails && (
           <Card className="text-left">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -153,43 +195,45 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
                 <>
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm text-muted-foreground">Bank Name:</span>
-                    <span className="font-medium">{(selectedPayment.details as any).bankName}</span>
+                    <span className="font-medium">{(currentPaymentDetails as any).bankName}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm text-muted-foreground">Account Title:</span>
-                    <span className="font-medium">{(selectedPayment.details as any).accountTitle}</span>
+                    <span className="font-medium">{(currentPaymentDetails as any).accountTitle}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm text-muted-foreground">Account Number:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-medium">{(selectedPayment.details as any).accountNumber}</span>
-                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).accountNumber)}>
+                      <span className="font-mono font-medium">{(currentPaymentDetails as any).accountNumber}</span>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((currentPaymentDetails as any).accountNumber)}>
                         <Copy className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-muted rounded">
-                    <span className="text-sm text-muted-foreground">IBAN:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-medium text-xs">{(selectedPayment.details as any).iban}</span>
-                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).iban)}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                  {(currentPaymentDetails as any).iban && (
+                    <div className="flex justify-between items-center p-2 bg-muted rounded">
+                      <span className="text-sm text-muted-foreground">IBAN:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-medium text-xs">{(currentPaymentDetails as any).iban}</span>
+                        <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((currentPaymentDetails as any).iban)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
               {(paymentMethod === "easypaisa" || paymentMethod === "jazzcash") && (
                 <>
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm text-muted-foreground">Account Title:</span>
-                    <span className="font-medium">{(selectedPayment.details as any).accountTitle}</span>
+                    <span className="font-medium">{(currentPaymentDetails as any).accountTitle}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm text-muted-foreground">Account Number:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-medium">{(selectedPayment.details as any).accountNumber}</span>
-                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).accountNumber)}>
+                      <span className="font-mono font-medium">{(currentPaymentDetails as any).accountNumber}</span>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((currentPaymentDetails as any).accountNumber)}>
                         <Copy className="h-3 w-3" />
                       </Button>
                     </div>
@@ -198,6 +242,16 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               )}
               <p className="text-sm text-muted-foreground mt-4 p-3 bg-primary/5 rounded-lg">
                 ⚠️ Please send payment to the above account and share the payment screenshot on WhatsApp or mention your tracking ID in the transaction reference.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {paymentMethod !== "cod" && !currentPaymentDetails && (
+          <Card className="text-left">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">
+                Payment details not configured. Please contact support for payment information.
               </p>
             </CardContent>
           </Card>
@@ -348,23 +402,33 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               </RadioGroup>
 
               {/* Show account details when non-COD is selected */}
-              {paymentMethod !== "cod" && selectedPayment.details && (
+              {paymentMethod !== "cod" && currentPaymentDetails && (
                 <div className="p-4 bg-muted/50 rounded-lg space-y-2 mt-4">
                   <p className="text-sm font-medium text-foreground">Account Details:</p>
                   {paymentMethod === "bank" && (
                     <>
-                      <p className="text-sm"><span className="text-muted-foreground">Bank:</span> {(selectedPayment.details as any).bankName}</p>
-                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(selectedPayment.details as any).accountTitle}</p>
-                      <p className="text-sm"><span className="text-muted-foreground">Account:</span> {(selectedPayment.details as any).accountNumber}</p>
-                      <p className="text-sm"><span className="text-muted-foreground">IBAN:</span> {(selectedPayment.details as any).iban}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Bank:</span> {(currentPaymentDetails as any).bankName}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(currentPaymentDetails as any).accountTitle}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Account:</span> {(currentPaymentDetails as any).accountNumber}</p>
+                      {(currentPaymentDetails as any).iban && (
+                        <p className="text-sm"><span className="text-muted-foreground">IBAN:</span> {(currentPaymentDetails as any).iban}</p>
+                      )}
                     </>
                   )}
                   {(paymentMethod === "easypaisa" || paymentMethod === "jazzcash") && (
                     <>
-                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(selectedPayment.details as any).accountTitle}</p>
-                      <p className="text-sm"><span className="text-muted-foreground">Number:</span> {(selectedPayment.details as any).accountNumber}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(currentPaymentDetails as any).accountTitle}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Number:</span> {(currentPaymentDetails as any).accountNumber}</p>
                     </>
                   )}
+                </div>
+              )}
+
+              {paymentMethod !== "cod" && !currentPaymentDetails && (
+                <div className="p-4 bg-destructive/10 rounded-lg mt-4">
+                  <p className="text-sm text-destructive">
+                    Payment details not configured. Please contact admin or choose Cash on Delivery.
+                  </p>
                 </div>
               )}
             </CardContent>

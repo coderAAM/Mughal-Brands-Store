@@ -30,7 +30,8 @@ import {
   Plus, Pencil, Trash2, Package, AlertTriangle, 
   TrendingUp, Settings, LayoutDashboard, Mail, Phone, 
   MapPin, Facebook, Instagram, Twitter, Youtube, MessageCircle,
-  ShoppingCart, Eye, Shield, Truck, CheckCircle, Upload, ImageIcon
+  ShoppingCart, Eye, Shield, Truck, CheckCircle, Upload, ImageIcon,
+  CreditCard, Smartphone, Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Product, Order, ContactMessage } from "@/types/product";
@@ -68,6 +69,15 @@ const Admin = () => {
     twitter_url: "",
     youtube_url: "",
     whatsapp_number: "",
+    // Payment settings
+    easypaisa_title: "",
+    easypaisa_number: "",
+    jazzcash_title: "",
+    jazzcash_number: "",
+    bank_name: "",
+    bank_title: "",
+    bank_account: "",
+    bank_iban: "",
   });
 
   // Check admin access
@@ -1074,7 +1084,6 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
-            {/* Settings Tab */}
             <TabsContent value="settings" className="space-y-6">
               <form onSubmit={handleSaveSettings}>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -1187,6 +1196,116 @@ const Admin = () => {
                           onChange={(e) => setSettingsData({ ...settingsData, whatsapp_number: e.target.value })}
                           placeholder="+923001234567"
                         />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Easypaisa Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-green-600" />
+                        Easypaisa Account
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="easypaisa_title">Account Title</Label>
+                        <Input
+                          id="easypaisa_title"
+                          value={settingsData.easypaisa_title}
+                          onChange={(e) => setSettingsData({ ...settingsData, easypaisa_title: e.target.value })}
+                          placeholder="Muhammad Ali"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="easypaisa_number">Account Number</Label>
+                        <Input
+                          id="easypaisa_number"
+                          value={settingsData.easypaisa_number}
+                          onChange={(e) => setSettingsData({ ...settingsData, easypaisa_number: e.target.value })}
+                          placeholder="0300-1234567"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* JazzCash Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-red-600" />
+                        JazzCash Account
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="jazzcash_title">Account Title</Label>
+                        <Input
+                          id="jazzcash_title"
+                          value={settingsData.jazzcash_title}
+                          onChange={(e) => setSettingsData({ ...settingsData, jazzcash_title: e.target.value })}
+                          placeholder="Muhammad Ali"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="jazzcash_number">Account Number</Label>
+                        <Input
+                          id="jazzcash_number"
+                          value={settingsData.jazzcash_number}
+                          onChange={(e) => setSettingsData({ ...settingsData, jazzcash_number: e.target.value })}
+                          placeholder="0301-7654321"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Bank Transfer Settings */}
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5" />
+                        Bank Account Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="bank_name">Bank Name</Label>
+                          <Input
+                            id="bank_name"
+                            value={settingsData.bank_name}
+                            onChange={(e) => setSettingsData({ ...settingsData, bank_name: e.target.value })}
+                            placeholder="HBL Bank"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bank_title">Account Title</Label>
+                          <Input
+                            id="bank_title"
+                            value={settingsData.bank_title}
+                            onChange={(e) => setSettingsData({ ...settingsData, bank_title: e.target.value })}
+                            placeholder="Muhammad Ali"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bank_account">Account Number</Label>
+                          <Input
+                            id="bank_account"
+                            value={settingsData.bank_account}
+                            onChange={(e) => setSettingsData({ ...settingsData, bank_account: e.target.value })}
+                            placeholder="1234567890123"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bank_iban">IBAN</Label>
+                          <Input
+                            id="bank_iban"
+                            value={settingsData.bank_iban}
+                            onChange={(e) => setSettingsData({ ...settingsData, bank_iban: e.target.value })}
+                            placeholder="PK00HABB0001234567890123"
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

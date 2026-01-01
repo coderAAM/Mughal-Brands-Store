@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CartItem } from "@/contexts/CartContext";
-import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy } from "lucide-react";
+import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy, CreditCard, Smartphone, Building2 } from "lucide-react";
 
 interface CheckoutFormProps {
   items: CartItem[];
@@ -16,10 +17,45 @@ interface CheckoutFormProps {
   onBack: () => void;
 }
 
+const PAYMENT_METHODS = {
+  cod: {
+    label: "Cash on Delivery",
+    icon: CreditCard,
+    details: null,
+  },
+  easypaisa: {
+    label: "Easypaisa",
+    icon: Smartphone,
+    details: {
+      accountTitle: "Muhammad Ali",
+      accountNumber: "0300-1234567",
+    },
+  },
+  jazzcash: {
+    label: "JazzCash",
+    icon: Smartphone,
+    details: {
+      accountTitle: "Muhammad Ali",
+      accountNumber: "0301-7654321",
+    },
+  },
+  bank: {
+    label: "Bank Transfer",
+    icon: Building2,
+    details: {
+      bankName: "HBL Bank",
+      accountTitle: "Muhammad Ali",
+      accountNumber: "1234567890123",
+      iban: "PK00HABB0001234567890123",
+    },
+  },
+};
+
 const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [trackingIds, setTrackingIds] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState("cod");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -33,6 +69,11 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     toast.success("Tracking ID copied to clipboard!");
   };
 
+  const handleCopyAccountNumber = (number: string) => {
+    navigator.clipboard.writeText(number);
+    toast.success("Account number copied!");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -44,6 +85,8 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     setIsSubmitting(true);
 
     try {
+      const finalTotal = total >= 10000 ? total : total + 500;
+      
       // Create an order for each item in the cart
       const orders = items.map((item) => ({
         customer_name: formData.name,
@@ -58,6 +101,8 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         total_amount: item.price * item.quantity,
         notes: formData.notes || null,
         status: "pending",
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === "cod" ? "pending" : "awaiting_payment",
       }));
 
       const { data, error } = await supabase
@@ -80,6 +125,8 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     }
   };
 
+  const selectedPayment = PAYMENT_METHODS[paymentMethod as keyof typeof PAYMENT_METHODS];
+
   // Show success screen with tracking IDs
   if (orderSuccess) {
     return (
@@ -89,8 +136,72 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         </div>
         <h2 className="font-serif text-3xl font-bold text-foreground">Order Placed Successfully!</h2>
         <p className="text-muted-foreground">
-          Thank you for your order. We will contact you shortly to confirm your order.
+          Thank you for your order. {paymentMethod !== "cod" && "Please complete your payment using the details provided below."}
         </p>
+        
+        {/* Show payment details if not COD */}
+        {paymentMethod !== "cod" && selectedPayment.details && (
+          <Card className="text-left">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <selectedPayment.icon className="h-5 w-5 text-primary" />
+                Payment Details - {selectedPayment.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {paymentMethod === "bank" && (
+                <>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">Bank Name:</span>
+                    <span className="font-medium">{(selectedPayment.details as any).bankName}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">Account Title:</span>
+                    <span className="font-medium">{(selectedPayment.details as any).accountTitle}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">Account Number:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{(selectedPayment.details as any).accountNumber}</span>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).accountNumber)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">IBAN:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium text-xs">{(selectedPayment.details as any).iban}</span>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).iban)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+              {(paymentMethod === "easypaisa" || paymentMethod === "jazzcash") && (
+                <>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">Account Title:</span>
+                    <span className="font-medium">{(selectedPayment.details as any).accountTitle}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-sm text-muted-foreground">Account Number:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{(selectedPayment.details as any).accountNumber}</span>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyAccountNumber((selectedPayment.details as any).accountNumber)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+              <p className="text-sm text-muted-foreground mt-4 p-3 bg-primary/5 rounded-lg">
+                ⚠️ Please send payment to the above account and share the payment screenshot on WhatsApp or mention your tracking ID in the transaction reference.
+              </p>
+            </CardContent>
+          </Card>
+        )}
         
         {trackingIds.length > 0 && (
           <Card>
@@ -136,103 +247,132 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Customer Details Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Customer Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-2">
-                  <User className="h-4 w-4" /> Full Name *
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter your full name"
-                  required
-                />
-              </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Customer Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} id="checkout-form" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="flex items-center gap-2">
+                    <User className="h-4 w-4" /> Full Name *
+                  </Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" /> Email *
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" /> Email *
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" /> Phone Number *
-                </Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Enter your phone number"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" /> Phone Number *
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Enter your phone number"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address" className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> Delivery Address
-                </Label>
-                <Textarea
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter your full delivery address"
-                  rows={3}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" /> Delivery Address
+                  </Label>
+                  <Textarea
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Enter your full delivery address"
+                    rows={3}
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" /> Order Notes
-                </Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Any special instructions for your order..."
-                  rows={2}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Order Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Any special instructions for your order..."
+                    rows={2}
+                  />
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              <Button
-                type="submit"
-                variant="hero"
-                size="lg"
-                className="w-full"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  "Placing Order..."
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-5 w-5" />
-                    Place Order
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Payment Method Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment Method
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
+                {Object.entries(PAYMENT_METHODS).map(([key, method]) => (
+                  <div key={key} className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === key ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+                    <RadioGroupItem value={key} id={key} />
+                    <Label htmlFor={key} className="flex items-center gap-3 cursor-pointer flex-1">
+                      <method.icon className={`h-5 w-5 ${paymentMethod === key ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="font-medium">{method.label}</span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              {/* Show account details when non-COD is selected */}
+              {paymentMethod !== "cod" && selectedPayment.details && (
+                <div className="p-4 bg-muted/50 rounded-lg space-y-2 mt-4">
+                  <p className="text-sm font-medium text-foreground">Account Details:</p>
+                  {paymentMethod === "bank" && (
+                    <>
+                      <p className="text-sm"><span className="text-muted-foreground">Bank:</span> {(selectedPayment.details as any).bankName}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(selectedPayment.details as any).accountTitle}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Account:</span> {(selectedPayment.details as any).accountNumber}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">IBAN:</span> {(selectedPayment.details as any).iban}</p>
+                    </>
+                  )}
+                  {(paymentMethod === "easypaisa" || paymentMethod === "jazzcash") && (
+                    <>
+                      <p className="text-sm"><span className="text-muted-foreground">Title:</span> {(selectedPayment.details as any).accountTitle}</p>
+                      <p className="text-sm"><span className="text-muted-foreground">Number:</span> {(selectedPayment.details as any).accountNumber}</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Order Summary */}
-        <Card>
+        <Card className="h-fit">
           <CardHeader>
             <CardTitle>Order Summary</CardTitle>
           </CardHeader>
@@ -270,6 +410,10 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
                 <span>Shipping</span>
                 <span>{total >= 10000 ? "Free" : "Rs. 500"}</span>
               </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Payment Method</span>
+                <span>{selectedPayment.label}</span>
+              </div>
               <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
                 <span>Total</span>
                 <span className="text-primary">
@@ -277,6 +421,24 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
                 </span>
               </div>
             </div>
+
+            <Button
+              type="submit"
+              form="checkout-form"
+              variant="hero"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                "Placing Order..."
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-5 w-5" />
+                  Place Order
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>

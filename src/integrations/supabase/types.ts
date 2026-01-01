@@ -50,6 +50,8 @@ export type Database = {
           customer_phone: string
           id: string
           notes: string | null
+          payment_method: string | null
+          payment_status: string | null
           product_id: string | null
           product_image_url: string | null
           product_name: string
@@ -68,6 +70,8 @@ export type Database = {
           customer_phone: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           product_id?: string | null
           product_image_url?: string | null
           product_name: string
@@ -86,6 +90,8 @@ export type Database = {
           customer_phone?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           product_id?: string | null
           product_image_url?: string | null
           product_name?: string

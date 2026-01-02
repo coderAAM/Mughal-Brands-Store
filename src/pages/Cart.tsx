@@ -139,12 +139,12 @@ const Cart = () => {
                       </div>
                       <div className="flex justify-between text-muted-foreground">
                         <span>Shipping</span>
-                        <span>{total >= 10000 ? "Free" : "Rs. 500"}</span>
+                        <span className="text-green-600">Free</span>
                       </div>
                       <div className="border-t border-border pt-4 flex justify-between font-bold text-lg">
                         <span>Total</span>
                         <span className="text-primary">
-                          Rs. {(total >= 10000 ? total : total + 500).toLocaleString()}
+                          Rs. {total.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -159,7 +159,7 @@ const Cart = () => {
                     </Button>
                     
                     <p className="text-xs text-muted-foreground text-center mt-4">
-                      Free shipping on orders over Rs. 10,000
+                      Free shipping on all orders
                     </p>
                   </div>
                 </div>

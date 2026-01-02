@@ -472,7 +472,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Shipping</span>
-                <span>{total >= 10000 ? "Free" : "Rs. 500"}</span>
+                <span className="text-green-600">Free</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Payment Method</span>
@@ -481,7 +481,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
                 <span>Total</span>
                 <span className="text-primary">
-                  Rs. {(total >= 10000 ? total : total + 500).toLocaleString()}
+                  Rs. {total.toLocaleString()}
                 </span>
               </div>
             </div>

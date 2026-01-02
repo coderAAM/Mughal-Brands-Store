@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingCart, Eye, Shield, Truck, CheckCircle } from "lucide-react";
+import { ShoppingCart, Shield, Truck, CheckCircle } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
@@ -26,10 +26,17 @@ const ProductCard = ({
   authenticity_text
 }: ProductCardProps) => {
   const { addItem } = useCart();
+  const navigate = useNavigate();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     addItem({ id, name, price, image_url });
+  };
+
+  const handleOrderNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem({ id, name, price, image_url });
+    navigate('/cart');
   };
 
   return (
@@ -54,8 +61,12 @@ const ProductCard = ({
               <ShoppingCart className="h-4 w-4 mr-2" />
               Add to Cart
             </Button>
-            <Button variant="secondary" size="icon">
-              <Eye className="h-4 w-4" />
+            <Button 
+              variant="hero" 
+              size="sm"
+              onClick={handleOrderNow}
+            >
+              Order Now
             </Button>
           </div>
           

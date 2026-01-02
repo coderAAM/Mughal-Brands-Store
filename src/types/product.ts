@@ -28,6 +28,8 @@ export interface Order {
   quantity: number;
   total_amount: number;
   status: string;
+  payment_method: string | null;
+  payment_status: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

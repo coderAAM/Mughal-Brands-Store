@@ -266,6 +266,23 @@ const Admin = () => {
     }
   });
 
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ id, payment_status }: { id: string; payment_status: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ payment_status } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success("Payment status updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    }
+  });
+
   const saveSettingsMutation = useMutation({
     mutationFn: async (settings: SiteSettings) => {
       for (const [key, value] of Object.entries(settings)) {
@@ -856,6 +873,7 @@ const Admin = () => {
                             <TableHead>Customer</TableHead>
                             <TableHead>Contact</TableHead>
                             <TableHead>Amount</TableHead>
+                            <TableHead>Payment</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
@@ -893,6 +911,24 @@ const Admin = () => {
                               </TableCell>
                               <TableCell className="font-bold text-primary">
                                 Rs. {order.total_amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <p className="text-xs capitalize">{order.payment_method || 'COD'}</p>
+                                  <select
+                                    value={order.payment_status || 'pending'}
+                                    onChange={(e) => updatePaymentStatusMutation.mutate({ id: order.id, payment_status: e.target.value })}
+                                    className={`px-2 py-1 rounded-full text-xs border-0 cursor-pointer ${
+                                      order.payment_status === 'paid' ? 'bg-green-500/10 text-green-600' :
+                                      order.payment_status === 'failed' ? 'bg-red-500/10 text-red-600' :
+                                      'bg-yellow-500/10 text-yellow-600'
+                                    }`}
+                                  >
+                                    <option value="pending">Pending</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="failed">Failed</option>
+                                  </select>
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <select
@@ -953,6 +989,12 @@ const Admin = () => {
                                           {order.notes && (
                                             <p><strong>Notes:</strong> {order.notes}</p>
                                           )}
+                                          <p><strong>Payment Method:</strong> <span className="capitalize">{order.payment_method || 'COD'}</span></p>
+                                          <p><strong>Payment Status:</strong> <span className={`px-2 py-1 rounded-full text-xs ${
+                                            order.payment_status === 'paid' ? 'bg-green-500/10 text-green-600' :
+                                            order.payment_status === 'failed' ? 'bg-red-500/10 text-red-600' :
+                                            'bg-yellow-500/10 text-yellow-600'
+                                          }`}>{order.payment_status || 'pending'}</span></p>
                                           <p><strong>Total:</strong> <span className="text-primary font-bold">Rs. {order.total_amount.toLocaleString()}</span></p>
                                           <p><strong>Status:</strong> <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(order.status)}`}>{order.status}</span></p>
                                           <p><strong>Date:</strong> {new Date(order.created_at).toLocaleString()}</p>

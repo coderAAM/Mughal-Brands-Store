@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Package, Truck, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Search, Package, Truck, CheckCircle, Clock, XCircle, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/types/product";
 
@@ -188,6 +188,32 @@ const TrackOrder = () => {
                     <h3 className="font-semibold text-lg">{order.product_name}</h3>
                     <p className="text-primary font-bold text-xl">Rs. {order.product_price.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Quantity: {order.quantity}</p>
+                  </div>
+                </div>
+
+                {/* Payment Info */}
+                <div className="flex gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Payment Information
+                    </h4>
+                    <div className="flex flex-wrap gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Method</p>
+                        <p className="font-medium capitalize">{order.payment_method || 'Cash on Delivery'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payment Status</p>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs capitalize ${
+                          order.payment_status === 'paid' ? 'bg-green-500/10 text-green-600' :
+                          order.payment_status === 'failed' ? 'bg-red-500/10 text-red-600' :
+                          'bg-yellow-500/10 text-yellow-600'
+                        }`}>
+                          {order.payment_status || 'pending'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

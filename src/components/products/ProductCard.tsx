@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingCart, Shield, Truck, CheckCircle } from "lucide-react";
+import { ShoppingCart, Shield, Truck, CheckCircle, MessageCircle } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
-
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 interface ProductCardProps {
   id: string;
   name: string;
@@ -28,6 +29,19 @@ const ProductCard = ({
   const { addItem } = useCart();
   const navigate = useNavigate();
 
+  // Fetch WhatsApp number from settings
+  const { data: whatsappNumber } = useQuery({
+    queryKey: ['whatsapp-number'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'whatsapp_number')
+        .maybeSingle();
+      return data?.value || "923001234567";
+    }
+  });
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     addItem({ id, name, price, image_url });
@@ -37,6 +51,17 @@ const ProductCard = ({
     e.preventDefault();
     addItem({ id, name, price, image_url });
     navigate('/cart');
+  };
+
+  const handleWhatsAppOrder = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const message = encodeURIComponent(
+      `🛒 I want to order:\n\n` +
+      `*${name}*\n` +
+      `Price: Rs. ${price.toLocaleString()}\n\n` +
+      `Please share details for checkout.`
+    );
+    window.open(`https://wa.me/${(whatsappNumber || "923001234567").replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
   return (
@@ -51,22 +76,33 @@ const ProductCard = ({
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           
           {/* Quick Actions */}
-          <div className="absolute bottom-4 left-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0">
+          <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0">
+            <div className="flex gap-2">
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex-1"
+                onClick={handleAddToCart}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Add to Cart
+              </Button>
+              <Button 
+                variant="hero" 
+                size="sm"
+                onClick={handleOrderNow}
+              >
+                Order Now
+              </Button>
+            </div>
             <Button 
-              variant="default" 
-              size="sm" 
-              className="flex-1"
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Add to Cart
-            </Button>
-            <Button 
-              variant="hero" 
+              variant="outline" 
               size="sm"
-              onClick={handleOrderNow}
+              className="w-full bg-background/90 hover:bg-green-500 hover:text-white hover:border-green-500"
+              onClick={handleWhatsAppOrder}
             >
-              Order Now
+              <MessageCircle className="h-4 w-4 mr-2" />
+              WhatsApp Order
             </Button>
           </div>
           

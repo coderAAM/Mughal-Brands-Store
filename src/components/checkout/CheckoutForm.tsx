@@ -8,8 +8,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CartItem } from "@/contexts/CartContext";
-import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy, CreditCard, Smartphone, Building2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, FileText, ArrowLeft, CheckCircle, Copy, CreditCard, Smartphone, Building2, ShieldCheck, MessageCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface CheckoutFormProps {
   items: CartItem[];
@@ -27,6 +28,7 @@ interface PaymentSettings {
   bank_title: string;
   bank_account: string;
   bank_iban: string;
+  whatsapp_number: string;
 }
 
 const PAYMENT_METHODS = {
@@ -49,6 +51,12 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     notes: "",
   });
 
+  // OTP verification states
+  const [otpStep, setOtpStep] = useState<'form' | 'verify'>('form');
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   // Fetch payment settings from database
   const { data: paymentSettings } = useQuery({
     queryKey: ['payment-settings'],
@@ -56,7 +64,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       const { data, error } = await supabase
         .from('site_settings')
         .select('key, value')
-        .in('key', ['easypaisa_title', 'easypaisa_number', 'jazzcash_title', 'jazzcash_number', 'bank_name', 'bank_title', 'bank_account', 'bank_iban']);
+        .in('key', ['easypaisa_title', 'easypaisa_number', 'jazzcash_title', 'jazzcash_number', 'bank_name', 'bank_title', 'bank_account', 'bank_iban', 'whatsapp_number']);
       
       if (error) throw error;
       
@@ -69,6 +77,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         bank_title: "",
         bank_account: "",
         bank_iban: "",
+        whatsapp_number: "",
       };
       
       data?.forEach((item: { key: string; value: string | null }) => {
@@ -117,14 +126,67 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     toast.success("Account number copied!");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name || !formData.email || !formData.phone) {
+  const handleSendOtp = async () => {
+    if (!formData.email || !formData.phone || !formData.name) {
       toast.error("Please fill in all required fields");
       return;
     }
 
+    setIsSendingOtp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { email: formData.email, phone: formData.phone, action: 'send' }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Verification code sent! Check your email.");
+        setOtpStep('verify');
+        // For testing - show OTP in toast (remove in production)
+        if (data.debug_otp) {
+          toast.info(`Test OTP: ${data.debug_otp}`, { duration: 30000 });
+        }
+      } else {
+        throw new Error(data?.message || 'Failed to send OTP');
+      }
+    } catch (error: any) {
+      console.error('OTP send error:', error);
+      toast.error(error.message || "Failed to send verification code");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyAndSubmit = async () => {
+    if (otpCode.length !== 6) {
+      toast.error("Please enter the 6-digit verification code");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { email: formData.email, phone: formData.phone, action: 'verify', otp: otpCode }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Verified! Placing your order...");
+        await submitOrder();
+      } else {
+        toast.error(data?.message || "Invalid verification code");
+      }
+    } catch (error: any) {
+      console.error('OTP verify error:', error);
+      toast.error(error.message || "Verification failed");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const submitOrder = async () => {
     setIsSubmitting(true);
 
     try {
@@ -164,6 +226,35 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.name || !formData.email || !formData.phone) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Start OTP verification flow
+    await handleSendOtp();
+  };
+
+  const handleWhatsAppOrder = () => {
+    const whatsappNumber = paymentSettings?.whatsapp_number || "923001234567";
+    const itemsList = items.map(item => `- ${item.name} (Qty: ${item.quantity}) - Rs. ${(item.price * item.quantity).toLocaleString()}`).join('\n');
+    const message = encodeURIComponent(
+      `🛒 *New Order Request*\n\n` +
+      `*Customer Details:*\n` +
+      `Name: ${formData.name || 'Not provided'}\n` +
+      `Phone: ${formData.phone || 'Not provided'}\n` +
+      `Email: ${formData.email || 'Not provided'}\n` +
+      `Address: ${formData.address || 'Not provided'}\n\n` +
+      `*Order Items:*\n${itemsList}\n\n` +
+      `*Total:* Rs. ${total.toLocaleString()}\n` +
+      `*Payment Method:* ${PAYMENT_METHODS[paymentMethod as keyof typeof PAYMENT_METHODS].label}`
+    );
+    window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
   const selectedPayment = PAYMENT_METHODS[paymentMethod as keyof typeof PAYMENT_METHODS];
@@ -285,6 +376,72 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         <Button variant="hero" onClick={onSuccess}>
           Continue Shopping
         </Button>
+      </div>
+    );
+  }
+
+  // OTP Verification Step
+  if (otpStep === 'verify') {
+    return (
+      <div className="max-w-md mx-auto space-y-6">
+        <button
+          onClick={() => setOtpStep('form')}
+          className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Form
+        </button>
+
+        <Card>
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="font-serif text-2xl">Verify Your Email</CardTitle>
+            <p className="text-muted-foreground mt-2">
+              We've sent a 6-digit verification code to <span className="font-medium text-foreground">{formData.email}</span>
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={otpCode}
+                onChange={(value) => setOtpCode(value)}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full"
+              onClick={handleVerifyAndSubmit}
+              disabled={isVerifying || otpCode.length !== 6}
+            >
+              {isVerifying ? "Verifying..." : "Verify & Place Order"}
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={isSendingOtp}
+                className="text-sm text-primary hover:underline disabled:opacity-50"
+              >
+                {isSendingOtp ? "Sending..." : "Resend Code"}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -486,23 +643,36 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               </div>
             </div>
 
-            <Button
-              type="submit"
-              form="checkout-form"
-              variant="hero"
-              size="lg"
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                "Placing Order..."
-              ) : (
-                <>
-                  <CheckCircle className="mr-2 h-5 w-5" />
-                  Place Order
-                </>
-              )}
-            </Button>
+            <div className="space-y-3">
+              <Button
+                type="submit"
+                form="checkout-form"
+                variant="hero"
+                size="lg"
+                className="w-full"
+                disabled={isSendingOtp}
+              >
+                {isSendingOtp ? (
+                  "Sending Verification..."
+                ) : (
+                  <>
+                    <ShieldCheck className="mr-2 h-5 w-5" />
+                    Verify & Place Order
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handleWhatsAppOrder}
+              >
+                <MessageCircle className="mr-2 h-5 w-5" />
+                Order via WhatsApp
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

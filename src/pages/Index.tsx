@@ -8,7 +8,7 @@ import heroImage from "@/assets/hero-watch.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Product } from "@/types/product";
-
+import { useEffect } from "react";
 const Index = () => {
   const { data: featuredProducts } = useQuery({
     queryKey: ['featured-products'],
@@ -24,18 +24,24 @@ const Index = () => {
     }
   });
 
+  // Update page title for SEO
+  useEffect(() => {
+    document.title = "MUGHAL BRAND'S - Premium Luxury Watches in Pakistan";
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+      <header className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
         <div className="absolute inset-0">
           <img 
             src={heroImage} 
-            alt="Luxury Watch" 
+            alt="Premium Luxury Watch - MUGHAL BRAND'S Collection" 
             className="w-full h-full object-cover"
+            loading="eager"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
         </div>
@@ -66,17 +72,17 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
 
       {/* Featured Products */}
-      <section className="py-20">
+      <section className="py-20" aria-labelledby="featured-heading">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <span className="text-primary font-medium tracking-widest uppercase text-sm">
               Our Collection
             </span>
-            <h2 className="font-serif text-4xl md:text-5xl font-bold text-foreground mt-2">
+            <h2 id="featured-heading" className="font-serif text-4xl md:text-5xl font-bold text-foreground mt-2">
               Featured Timepieces
             </h2>
           </div>
@@ -116,9 +122,9 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-secondary">
+      <section className="py-20 bg-secondary" aria-labelledby="cta-heading">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-secondary-foreground mb-6">
+          <h2 id="cta-heading" className="font-serif text-4xl md:text-5xl font-bold text-secondary-foreground mb-6">
             Experience Luxury
           </h2>
           <p className="text-secondary-foreground/80 text-lg max-w-2xl mx-auto mb-8">

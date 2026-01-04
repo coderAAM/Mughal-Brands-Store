@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin, Phone, Mail, Clock, MessageCircle } from "lucide-react";
+import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -25,25 +24,6 @@ const Contact = () => {
   });
   const [errors, setErrors] = useState<{ name?: string; email?: string; message?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch site settings from database
-  const { data: siteSettings } = useQuery({
-    queryKey: ['contact-settings'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('key, value')
-        .in('key', ['email', 'phone', 'address', 'whatsapp_number']);
-      
-      if (error) throw error;
-      
-      const settings: Record<string, string> = {};
-      data?.forEach((item: { key: string; value: string | null }) => {
-        settings[item.key] = item.value || "";
-      });
-      return settings;
-    }
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,36 +62,26 @@ const Contact = () => {
     }
   };
 
-  const handleWhatsAppClick = () => {
-    const whatsappNumber = siteSettings?.whatsapp_number || "";
-    if (whatsappNumber) {
-      window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`, '_blank');
-    }
-  };
-
   const contactInfo = [
     {
       icon: MapPin,
       title: "Visit Us",
-      details: siteSettings?.address ? [siteSettings.address] : ["Loading..."],
+      details: ["Liberty Market", "Lahore, Pakistan"],
     },
     {
       icon: Phone,
       title: "Call Us",
-      details: siteSettings?.phone ? [siteSettings.phone] : ["Loading..."],
-      link: siteSettings?.phone ? `tel:${siteSettings.phone.replace(/\s/g, '')}` : undefined,
+      details: ["+92 300 1234567", "+92 42 35761234"],
     },
     {
       icon: Mail,
       title: "Email Us",
-      details: siteSettings?.email ? [siteSettings.email] : ["Loading..."],
-      link: siteSettings?.email ? `mailto:${siteSettings.email}` : undefined,
+      details: ["info@mughalbrands.com", "support@mughalbrands.com"],
     },
     {
-      icon: MessageCircle,
-      title: "WhatsApp",
-      details: siteSettings?.whatsapp_number ? [siteSettings.whatsapp_number] : ["Loading..."],
-      onClick: handleWhatsAppClick,
+      icon: Clock,
+      title: "Working Hours",
+      details: ["Mon - Sat: 10AM - 9PM", "Sunday: 2PM - 8PM"],
     },
   ];
 
@@ -148,25 +118,14 @@ const Contact = () => {
                   {contactInfo.map((info) => (
                     <div
                       key={info.title}
-                      className={`p-6 bg-card rounded-lg border border-border ${info.onClick || info.link ? 'cursor-pointer hover:border-primary transition-colors' : ''}`}
-                      onClick={info.onClick}
+                      className="p-6 bg-card rounded-lg border border-border"
                     >
                       <info.icon className="h-8 w-8 text-primary mb-4" />
                       <h3 className="font-semibold text-card-foreground mb-2">{info.title}</h3>
                       {info.details.map((detail, idx) => (
-                        info.link ? (
-                          <a 
-                            key={idx} 
-                            href={info.link} 
-                            className="block text-muted-foreground text-sm hover:text-primary transition-colors"
-                          >
-                            {detail}
-                          </a>
-                        ) : (
-                          <p key={idx} className="text-muted-foreground text-sm">
-                            {detail}
-                          </p>
-                        )
+                        <p key={idx} className="text-muted-foreground text-sm">
+                          {detail}
+                        </p>
                       ))}
                     </div>
                   ))}

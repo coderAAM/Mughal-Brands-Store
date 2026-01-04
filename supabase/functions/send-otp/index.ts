@@ -88,7 +88,7 @@ serve(async (req) => {
 
       try {
         const emailResponse = await resend.emails.send({
-          from: "MUGHAL BRAND'S <onboarding@resend.dev>",
+          from: "MUGHAL BRAND'S <orders@mughalbrands.com>",
           to: [email],
           subject: "Your Order Verification Code - MUGHAL BRAND'S",
           html: emailHtml,

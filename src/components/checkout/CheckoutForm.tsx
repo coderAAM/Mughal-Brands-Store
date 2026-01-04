@@ -141,12 +141,8 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       if (error) throw error;
 
       if (data?.success) {
-        toast.success("Verification code sent! Check your email.");
+        toast.success("Verification code sent to your email!");
         setOtpStep('verify');
-        // For testing - show OTP in toast (remove in production)
-        if (data.debug_otp) {
-          toast.info(`Test OTP: ${data.debug_otp}`, { duration: 30000 });
-        }
       } else {
         throw new Error(data?.message || 'Failed to send OTP');
       }

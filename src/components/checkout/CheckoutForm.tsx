@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
   const [otpCode, setOtpCode] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   // Fetch payment settings from database
   const { data: paymentSettings } = useQuery({
@@ -126,9 +127,22 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
     toast.success("Account number copied!");
   };
 
+  // Cooldown timer effect
+  useEffect(() => {
+    if (cooldownSeconds > 0) {
+      const timer = setTimeout(() => setCooldownSeconds(cooldownSeconds - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownSeconds]);
+
   const handleSendOtp = async () => {
     if (!formData.email || !formData.phone || !formData.name) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (cooldownSeconds > 0) {
+      toast.error(`Please wait ${cooldownSeconds} seconds before requesting a new code`);
       return;
     }
 
@@ -143,6 +157,10 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       if (data?.success) {
         toast.success("Verification code sent to your email!");
         setOtpStep('verify');
+        setCooldownSeconds(60); // Start 60 second cooldown
+      } else if (data?.cooldownRemaining) {
+        setCooldownSeconds(data.cooldownRemaining);
+        toast.error(data.message);
       } else {
         throw new Error(data?.message || 'Failed to send OTP');
       }
@@ -216,6 +234,24 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       setTrackingIds(ids);
       setOrderSuccess(true);
       toast.success("Order placed successfully!");
+
+      // Send order confirmation email
+      try {
+        await supabase.functions.invoke('send-otp', {
+          body: { 
+            email: formData.email, 
+            action: 'send-confirmation',
+            orderItems: items,
+            trackingIds: ids,
+            paymentMethod: PAYMENT_METHODS[paymentMethod as keyof typeof PAYMENT_METHODS].label,
+            customerName: formData.name,
+            customerAddress: formData.address
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't show error to user as order was successful
+      }
     } catch (error: any) {
       console.error("Checkout error:", error);
       toast.error("Failed to place order. Please try again.");
@@ -430,10 +466,14 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               <button
                 type="button"
                 onClick={handleSendOtp}
-                disabled={isSendingOtp}
-                className="text-sm text-primary hover:underline disabled:opacity-50"
+                disabled={isSendingOtp || cooldownSeconds > 0}
+                className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSendingOtp ? "Sending..." : "Resend Code"}
+                {isSendingOtp 
+                  ? "Sending..." 
+                  : cooldownSeconds > 0 
+                    ? `Resend in ${cooldownSeconds}s` 
+                    : "Resend Code"}
               </button>
             </div>
           </CardContent>

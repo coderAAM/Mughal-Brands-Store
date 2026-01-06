@@ -190,6 +190,78 @@ serve(async (req) => {
       );
     }
 
+    // Create order server-side after OTP verification
+    if (action === 'create-order') {
+      const { orderData, items } = requestBody;
+      
+      console.log('Creating orders for:', email);
+
+      // Verify that OTP was verified recently for this email
+      const { data: verifiedOtp, error: otpError } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('email', email)
+        .eq('verified', true)
+        .gt('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // Within last 30 minutes
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (otpError || !verifiedOtp) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Please verify your email first' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Create orders
+      const orders = items.map((item: any) => ({
+        customer_name: orderData.name,
+        customer_email: email,
+        customer_phone: orderData.phone,
+        customer_address: orderData.address || null,
+        product_id: item.id,
+        product_name: item.name,
+        product_price: item.price,
+        product_image_url: item.image_url,
+        quantity: item.quantity,
+        total_amount: item.price * item.quantity,
+        notes: orderData.notes || null,
+        status: "pending",
+        payment_method: orderData.paymentMethod,
+        payment_status: orderData.paymentMethod === "cod" ? "pending" : "awaiting_payment",
+      }));
+
+      const { data: createdOrders, error: insertError } = await supabase
+        .from("orders")
+        .insert(orders)
+        .select("tracking_id");
+
+      if (insertError) {
+        console.error('Error creating orders:', insertError);
+        throw new Error('Failed to create order');
+      }
+
+      const trackingIds = createdOrders?.map((order: any) => order.tracking_id).filter(Boolean) || [];
+      
+      console.log('Orders created with tracking IDs:', trackingIds);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Order created successfully',
+          trackingIds
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     if (action === 'send-confirmation') {
       const { orderItems, trackingIds, paymentMethod, customerName, customerAddress } = requestBody;
       

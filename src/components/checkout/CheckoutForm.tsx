@@ -180,57 +180,49 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
 
     setIsVerifying(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-otp', {
+      // First verify OTP
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('send-otp', {
         body: { email: formData.email, phone: formData.phone, action: 'verify', otp: otpCode }
       });
 
-      if (error) throw error;
+      if (verifyError) throw verifyError;
 
-      if (data?.success) {
-        toast.success("Verified! Placing your order...");
-        await submitOrder();
-      } else {
-        toast.error(data?.message || "Invalid verification code");
+      if (!verifyData?.success) {
+        toast.error(verifyData?.message || "Invalid verification code");
+        return;
       }
-    } catch (error: any) {
-      console.error('OTP verify error:', error);
-      toast.error(error.message || "Verification failed");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
-  const submitOrder = async () => {
-    setIsSubmitting(true);
+      toast.success("Verified! Placing your order...");
+      
+      // Create order server-side (after OTP verification)
+      const { data: orderData, error: orderError } = await supabase.functions.invoke('send-otp', {
+        body: { 
+          email: formData.email, 
+          action: 'create-order',
+          orderData: {
+            name: formData.name,
+            phone: formData.phone,
+            address: formData.address,
+            notes: formData.notes,
+            paymentMethod: paymentMethod,
+          },
+          items: items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            image_url: item.image_url,
+            quantity: item.quantity,
+          }))
+        }
+      });
 
-    try {
-      // Create an order for each item in the cart
-      const orders = items.map((item) => ({
-        customer_name: formData.name,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        customer_address: formData.address || null,
-        product_id: item.id,
-        product_name: item.name,
-        product_price: item.price,
-        product_image_url: item.image_url,
-        quantity: item.quantity,
-        total_amount: item.price * item.quantity,
-        notes: formData.notes || null,
-        status: "pending",
-        payment_method: paymentMethod,
-        payment_status: paymentMethod === "cod" ? "pending" : "awaiting_payment",
-      }));
+      if (orderError) throw orderError;
 
-      const { data, error } = await supabase
-        .from("orders")
-        .insert(orders as any)
-        .select("tracking_id");
+      if (!orderData?.success) {
+        throw new Error(orderData?.message || 'Failed to create order');
+      }
 
-      if (error) throw error;
-
-      // Get tracking IDs from the response
-      const ids = data?.map((order: any) => order.tracking_id).filter(Boolean) || [];
+      const ids = orderData.trackingIds || [];
       setTrackingIds(ids);
       setOrderSuccess(true);
       toast.success("Order placed successfully!");
@@ -250,13 +242,12 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
         });
       } catch (emailError) {
         console.error('Failed to send confirmation email:', emailError);
-        // Don't show error to user as order was successful
       }
     } catch (error: any) {
-      console.error("Checkout error:", error);
-      toast.error("Failed to place order. Please try again.");
+      console.error('Order error:', error);
+      toast.error(error.message || "Failed to place order");
     } finally {
-      setIsSubmitting(false);
+      setIsVerifying(false);
     }
   };
 

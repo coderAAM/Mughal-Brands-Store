@@ -137,7 +137,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Verification code sent to your email'
+          message: 'Verification code sent to your email',
+          otpCode: otpCode // Return OTP for display on website
         }),
         {
           status: 200,

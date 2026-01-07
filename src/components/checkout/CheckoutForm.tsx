@@ -54,6 +54,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
   // OTP verification states
   const [otpStep, setOtpStep] = useState<'form' | 'verify'>('form');
   const [otpCode, setOtpCode] = useState("");
+  const [displayedOtp, setDisplayedOtp] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
@@ -155,7 +156,8 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       if (error) throw error;
 
       if (data?.success) {
-        toast.success("Verification code sent to your email!");
+        toast.success("Verification code sent!");
+        setDisplayedOtp(data.otpCode || "");
         setOtpStep('verify');
         setCooldownSeconds(60); // Start 60 second cooldown
       } else if (data?.cooldownRemaining) {
@@ -420,12 +422,33 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <ShieldCheck className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="font-serif text-2xl">Verify Your Email</CardTitle>
+            <CardTitle className="font-serif text-2xl">Verify Your Order</CardTitle>
             <p className="text-muted-foreground mt-2">
-              We've sent a 6-digit verification code to <span className="font-medium text-foreground">{formData.email}</span>
+              Enter the verification code below to confirm your order
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Display OTP Code */}
+            {displayedOtp && (
+              <div className="text-center p-4 bg-primary/10 rounded-lg border-2 border-primary/30">
+                <p className="text-sm text-muted-foreground mb-2">Your Verification Code:</p>
+                <div className="flex items-center justify-center gap-2">
+                  <code className="text-3xl font-bold font-mono tracking-widest text-primary">{displayedOtp}</code>
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(displayedOtp);
+                      toast.success("Code copied!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Code also sent to: {formData.email}</p>
+              </div>
+            )}
+
             <div className="flex justify-center">
               <InputOTP
                 maxLength={6}

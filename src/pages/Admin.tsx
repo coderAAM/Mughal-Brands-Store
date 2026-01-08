@@ -233,16 +233,37 @@ const Admin = () => {
   });
 
   const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status, order }: { id: string; status: string; order?: Order }) => {
       const { error } = await supabase
         .from('orders')
         .update({ status } as any)
         .eq('id', id);
       if (error) throw error;
+
+      // Send email notification for shipped or delivered status
+      if (order && ['shipped', 'delivered', 'confirmed', 'cancelled'].includes(status)) {
+        try {
+          await supabase.functions.invoke('send-otp', {
+            body: {
+              email: order.customer_email,
+              action: 'send-status-update',
+              orderDetails: {
+                product_name: order.product_name,
+                quantity: order.quantity,
+                total_amount: order.total_amount,
+              },
+              newStatus: status,
+              trackingId: order.tracking_id,
+            }
+          });
+        } catch (emailError) {
+          console.error('Failed to send status update email:', emailError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      toast.success("Order status updated");
+      toast.success("Order status updated & customer notified");
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -933,7 +954,7 @@ const Admin = () => {
                               <TableCell>
                                 <select
                                   value={order.status}
-                                  onChange={(e) => updateOrderStatusMutation.mutate({ id: order.id, status: e.target.value })}
+                                  onChange={(e) => updateOrderStatusMutation.mutate({ id: order.id, status: e.target.value, order })}
                                   className={`px-2 py-1 rounded-full text-xs border-0 cursor-pointer ${getStatusColor(order.status)}`}
                                 >
                                   <option value="pending">Pending</option>

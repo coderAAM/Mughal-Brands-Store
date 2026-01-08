@@ -393,6 +393,57 @@ serve(async (req) => {
       );
     }
 
+    // Track order by tracking ID - public access
+    if (action === 'track-order') {
+      const { trackingId } = requestBody;
+      
+      console.log('Tracking order:', trackingId);
+
+      if (!trackingId) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Tracking ID is required' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tracking_id', trackingId.trim())
+        .maybeSingle();
+
+      if (orderError) {
+        console.error('Error fetching order:', orderError);
+        throw new Error('Failed to fetch order');
+      }
+
+      if (!order) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Order not found' }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      console.log('Order found:', order.tracking_id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          order: order
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       {

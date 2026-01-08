@@ -229,6 +229,19 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
       const ids = orderData.trackingIds || [];
       setTrackingIds(ids);
       setOrderSuccess(true);
+      
+      // Play success sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAAAAAAAAAAAAAAAAAAAAEFMVFgAAEFMVFgAAAAAAAAAAAAAAAAAAEFMVFg=');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch {}
+      
+      // Trigger haptic feedback on mobile
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+      
       toast.success("Order placed successfully!");
 
       // Send order confirmation email
@@ -451,7 +464,7 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               </div>
             )}
 
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-4">
               <InputOTP
                 maxLength={6}
                 value={otpCode}
@@ -466,6 +479,14 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
                   <InputOTPSlot index={5} />
                 </InputOTPGroup>
               </InputOTP>
+              
+              {/* Checkmark animation when code matches */}
+              {otpCode === displayedOtp && displayedOtp && (
+                <div className="flex items-center gap-2 text-green-600 animate-scale-in">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">Code verified!</span>
+                </div>
+              )}
             </div>
 
             <Button

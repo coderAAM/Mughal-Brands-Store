@@ -444,6 +444,125 @@ serve(async (req) => {
       );
     }
 
+    // Send order status update notification
+    if (action === 'send-status-update') {
+      const { orderDetails, newStatus, trackingId } = requestBody;
+      
+      console.log('Sending status update email to:', email, 'Status:', newStatus);
+
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
+      if (!resendApiKey) {
+        console.error('RESEND_API_KEY not configured');
+        throw new Error('Email service not configured');
+      }
+
+      const resend = new Resend(resendApiKey);
+
+      const statusMessages: Record<string, { title: string; message: string; icon: string }> = {
+        shipped: {
+          title: 'Your Order Has Been Shipped! 🚚',
+          message: 'Great news! Your order is on its way to you. You can track your delivery using the tracking ID below.',
+          icon: '🚚'
+        },
+        delivered: {
+          title: 'Your Order Has Been Delivered! ✅',
+          message: 'Your order has been successfully delivered. Thank you for shopping with us!',
+          icon: '✅'
+        },
+        confirmed: {
+          title: 'Your Order Has Been Confirmed! 📦',
+          message: 'Your order has been confirmed and is being prepared for shipping.',
+          icon: '📦'
+        },
+        cancelled: {
+          title: 'Your Order Has Been Cancelled ❌',
+          message: 'Unfortunately, your order has been cancelled. If you have any questions, please contact us.',
+          icon: '❌'
+        }
+      };
+
+      const statusInfo = statusMessages[newStatus] || {
+        title: `Order Status Update`,
+        message: `Your order status has been updated to: ${newStatus}`,
+        icon: '📋'
+      };
+
+      const statusUpdateHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); padding: 30px; text-align: center; }
+            .header h1 { color: #1a1a2e; margin: 0; font-size: 28px; }
+            .content { padding: 30px; text-align: center; }
+            .status-icon { font-size: 60px; margin-bottom: 20px; }
+            h2 { color: #1a1a2e; margin: 0 0 15px; }
+            .message { color: #666; font-size: 16px; line-height: 1.6; margin-bottom: 25px; }
+            .tracking-box { background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            .tracking-id { font-family: monospace; font-size: 18px; color: #d4af37; font-weight: bold; }
+            .order-info { background: #fafafa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left; }
+            .order-info p { margin: 8px 0; color: #333; }
+            .footer { background: #1a1a2e; color: #999; padding: 20px; text-align: center; font-size: 12px; }
+            .btn { display: inline-block; background: #d4af37; color: #1a1a2e; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🕐 MUGHAL BRAND'S</h1>
+            </div>
+            <div class="content">
+              <div class="status-icon">${statusInfo.icon}</div>
+              <h2>${statusInfo.title}</h2>
+              <p class="message">${statusInfo.message}</p>
+              
+              <div class="tracking-box">
+                <p style="margin: 0 0 8px; color: #666; font-size: 14px;">Tracking ID:</p>
+                <span class="tracking-id">${trackingId}</span>
+              </div>
+
+              <div class="order-info">
+                <p><strong>Product:</strong> ${orderDetails.product_name}</p>
+                <p><strong>Quantity:</strong> ${orderDetails.quantity}</p>
+                <p><strong>Total:</strong> Rs. ${orderDetails.total_amount?.toLocaleString()}</p>
+              </div>
+
+              <a href="https://mughalbrands.com/track" class="btn">Track Your Order</a>
+            </div>
+            <div class="footer">
+              <p>© 2024 MUGHAL BRAND'S - Luxury Timepieces</p>
+              <p>Thank you for shopping with us!</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      try {
+        const emailResponse = await resend.emails.send({
+          from: "MUGHAL BRAND'S <orders@mughalbrands.com>",
+          to: [email],
+          subject: `${statusInfo.title} - ${trackingId}`,
+          html: statusUpdateHtml,
+        });
+
+        console.log('Status update email sent:', emailResponse);
+      } catch (emailError: any) {
+        console.error('Error sending status update email:', emailError);
+        throw new Error(`Failed to send status update email: ${emailError.message}`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Status update email sent' }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       {

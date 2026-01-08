@@ -27,19 +27,21 @@ const TrackOrder = () => {
     setSearched(true);
 
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('tracking_id', trackingId.trim())
-        .maybeSingle();
+      // Use edge function for public order tracking
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: {
+          action: 'track-order',
+          trackingId: trackingId.trim()
+        }
+      });
 
       if (error) throw error;
 
-      if (data) {
-        setOrder(data as Order);
+      if (data?.success && data?.order) {
+        setOrder(data.order as Order);
       } else {
         setOrder(null);
-        toast.error("No order found with this tracking ID");
+        toast.error(data?.message || "No order found with this tracking ID");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to search order");
@@ -124,7 +126,7 @@ const TrackOrder = () => {
 
           {/* Order Result */}
           {searched && order && (
-            <Card className="max-w-3xl mx-auto">
+            <Card className="max-w-3xl mx-auto animate-fade-in">
               <CardHeader>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>

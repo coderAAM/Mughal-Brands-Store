@@ -157,7 +157,9 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
 
       if (data?.success) {
         toast.success("Verification code sent!");
-        setDisplayedOtp(data.otpCode || "");
+        const otp = data.otpCode || "";
+        setDisplayedOtp(otp);
+        setOtpCode(otp); // Auto-fill the input
         setOtpStep('verify');
         setCooldownSeconds(60); // Start 60 second cooldown
       } else if (data?.cooldownRemaining) {

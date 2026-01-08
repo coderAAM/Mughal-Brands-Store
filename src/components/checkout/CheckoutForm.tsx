@@ -430,12 +430,12 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Display OTP Code */}
+            {/* Display OTP Code with Animation */}
             {displayedOtp && (
-              <div className="text-center p-4 bg-primary/10 rounded-lg border-2 border-primary/30">
+              <div className="text-center p-4 bg-primary/10 rounded-lg border-2 border-primary/30 animate-scale-in">
                 <p className="text-sm text-muted-foreground mb-2">Your Verification Code:</p>
                 <div className="flex items-center justify-center gap-2">
-                  <code className="text-3xl font-bold font-mono tracking-widest text-primary">{displayedOtp}</code>
+                  <code className="text-3xl font-bold font-mono tracking-widest text-primary animate-fade-in">{displayedOtp}</code>
                   <Button 
                     size="sm" 
                     variant="ghost"
@@ -473,9 +473,9 @@ const CheckoutForm = ({ items, total, onSuccess, onBack }: CheckoutFormProps) =>
               size="lg"
               className="w-full"
               onClick={handleVerifyAndSubmit}
-              disabled={isVerifying || otpCode.length !== 6}
+              disabled={isVerifying || otpCode !== displayedOtp}
             >
-              {isVerifying ? "Verifying..." : "Verify & Place Order"}
+              {isVerifying ? "Verifying..." : otpCode === displayedOtp ? "✓ Confirm Order" : "Enter Code to Confirm"}
             </Button>
 
             <div className="text-center">

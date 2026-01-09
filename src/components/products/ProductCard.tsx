@@ -65,7 +65,7 @@ const ProductCard = ({
   };
 
   return (
-    <Card className="group overflow-hidden border-border/50 hover:border-primary/30 transition-all duration-500 hover:shadow-xl bg-card">
+    <Card className="group overflow-hidden border-border/50 hover:border-primary/30 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 bg-card hover:-translate-y-2">
       <Link to={`/product/${id}`}>
         <div className="relative aspect-square overflow-hidden bg-muted">
           <img

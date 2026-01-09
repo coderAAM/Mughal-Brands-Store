@@ -563,6 +563,45 @@ serve(async (req) => {
       );
     }
 
+    // Get order history by email - for customers to view their past orders
+    if (action === 'get-order-history') {
+      console.log('Fetching order history for:', email);
+
+      if (!email) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Email is required' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_email', email.toLowerCase().trim())
+        .order('created_at', { ascending: false });
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        throw new Error('Failed to fetch orders');
+      }
+
+      console.log('Found', orders?.length || 0, 'orders for', email);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          orders: orders || []
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       {

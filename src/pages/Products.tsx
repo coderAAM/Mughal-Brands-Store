@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Product } from "@/types/product";
+import AnimatedSection from "@/components/animations/AnimatedSection";
+import StaggeredList from "@/components/animations/StaggeredList";
 
 const Products = () => {
   const [search, setSearch] = useState("");
@@ -72,14 +74,14 @@ const Products = () => {
       <main className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           {/* Header */}
-          <div className="text-center mb-12">
+          <AnimatedSection animation="fade-up" className="text-center mb-12">
             <h1 className="font-serif text-4xl md:text-5xl font-bold text-foreground mb-4">
               Our Collection
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Explore our curated selection of premium timepieces, each crafted with precision and elegance.
             </p>
-          </div>
+          </AnimatedSection>
 
           {/* Filters */}
           <div className="flex flex-col md:flex-row gap-4 mb-12">
@@ -133,7 +135,7 @@ const Products = () => {
               ))}
             </div>
           ) : filteredProducts && filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <StaggeredList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" staggerDelay={100}>
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -147,7 +149,7 @@ const Products = () => {
                   authenticity_text={product.authenticity_text}
                 />
               ))}
-            </div>
+            </StaggeredList>
           ) : (
             <div className="text-center py-20">
               <p className="text-muted-foreground text-lg mb-4">No products found</p>

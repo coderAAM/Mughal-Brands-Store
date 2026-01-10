@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { ShoppingCart, ArrowLeft, Shield, Truck, Award } from "lucide-react";
 import type { Product } from "@/types/product";
+import ProductImageGallery from "@/components/products/ProductImageGallery";
+import AnimatedSection from "@/components/animations/AnimatedSection";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -83,23 +85,25 @@ const ProductDetail = () => {
       
       <main className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          <Link to="/products" className="inline-flex items-center text-muted-foreground hover:text-primary mb-8">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Products
-          </Link>
+          <AnimatedSection animation="fade-right" delay={0}>
+            <Link to="/products" className="inline-flex items-center text-muted-foreground hover:text-primary mb-8 transition-colors">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Products
+            </Link>
+          </AnimatedSection>
 
           <div className="grid md:grid-cols-2 gap-12">
-            {/* Product Image */}
-            <div className="aspect-square rounded-lg overflow-hidden bg-card">
-              <img
-                src={product.image_url || "/placeholder.svg"}
-                alt={product.name}
-                className="w-full h-full object-cover"
+            {/* Product Image Gallery */}
+            <AnimatedSection animation="fade-right" delay={100}>
+              <ProductImageGallery
+                productId={product.id}
+                mainImageUrl={product.image_url}
+                productName={product.name}
               />
-            </div>
+            </AnimatedSection>
 
             {/* Product Info */}
-            <div className="flex flex-col">
+            <AnimatedSection animation="fade-left" delay={200} className="flex flex-col">
               {product.category && (
                 <span className="text-primary font-medium tracking-widest uppercase text-sm mb-2">
                   {product.category}
@@ -126,27 +130,35 @@ const ProductDetail = () => {
               </div>
 
               {/* Features */}
-              <div className="grid grid-cols-3 gap-4 border-t border-border pt-8">
-                {product.warranty_text && (
-                  <div className="flex flex-col items-center text-center">
-                    <Shield className="h-8 w-8 text-primary mb-2" />
-                    <span className="text-sm font-medium">{product.warranty_text}</span>
-                  </div>
-                )}
-                {product.shipping_text && (
-                  <div className="flex flex-col items-center text-center">
-                    <Truck className="h-8 w-8 text-primary mb-2" />
-                    <span className="text-sm font-medium">{product.shipping_text}</span>
-                  </div>
-                )}
-                {product.authenticity_text && (
-                  <div className="flex flex-col items-center text-center">
-                    <Award className="h-8 w-8 text-primary mb-2" />
-                    <span className="text-sm font-medium">{product.authenticity_text}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+              <AnimatedSection animation="fade-up" delay={400}>
+                <div className="grid grid-cols-3 gap-4 border-t border-border pt-8">
+                  {product.warranty_text && (
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
+                        <Shield className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium">{product.warranty_text}</span>
+                    </div>
+                  )}
+                  {product.shipping_text && (
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
+                        <Truck className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium">{product.shipping_text}</span>
+                    </div>
+                  )}
+                  {product.authenticity_text && (
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
+                        <Award className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium">{product.authenticity_text}</span>
+                    </div>
+                  )}
+                </div>
+              </AnimatedSection>
+            </AnimatedSection>
           </div>
         </div>
       </main>
